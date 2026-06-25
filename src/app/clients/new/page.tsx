@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
+
+const supabase = createClient()
 
 function generateReferralCode(lastName: string): string {
   const prefix = lastName.replace(/\s/g, '').slice(0, 4).toUpperCase().padEnd(4, 'X')

@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-browser'
+
+const supabase = createClient()
 import { Users, Calendar, DollarSign, Clock } from 'lucide-react'
 
 interface Appointment {
