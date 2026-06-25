@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-browser'
 
-const supabase = createClient()
-
 function generateReferralCode(lastName: string): string {
   const prefix = lastName.replace(/\s/g, '').slice(0, 4).toUpperCase().padEnd(4, 'X')
   const digits = Math.floor(1000 + Math.random() * 9000).toString()
@@ -14,6 +12,7 @@ function generateReferralCode(lastName: string): string {
 }
 
 export default function NewClientPage() {
+  const supabase = createClient()
   const router = useRouter()
   const [form, setForm] = useState({
     first_name: '',

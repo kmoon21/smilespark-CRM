@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-browser'
-
-const supabase = createClient()
 import { Users, Calendar, DollarSign, Clock } from 'lucide-react'
 
 interface Appointment {
@@ -38,6 +36,7 @@ const serviceColors: Record<string, string> = {
 }
 
 export default function DashboardPage() {
+  const supabase = createClient()
   const [stats, setStats] = useState<Stats>({ totalClients: 0, todayAppointments: 0, monthRevenue: 0, pendingCheckins: 0 })
   const [todayAppts, setTodayAppts] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,6 +87,7 @@ export default function DashboardPage() {
     }
 
     loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase-browser'
-
-const supabase = createClient()
 import { Copy, Check } from 'lucide-react'
 
 interface Client {
@@ -46,6 +44,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default function ClientDetailPage() {
+  const supabase = createClient()
   const { id } = useParams<{ id: string }>()
   const [client, setClient] = useState<Client | null>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
@@ -62,7 +61,6 @@ export default function ClientDetailPage() {
         supabase.from('crm_appointments').select('*').eq('client_id', id).order('scheduled_at', { ascending: false }),
         supabase.from('crm_photos').select('*').eq('client_id', id).order('taken_at', { ascending: false }),
       ])
-
       if (clientRes.data) {
         setClient(clientRes.data as Client)
         setNotes(clientRes.data.notes ?? '')
@@ -72,6 +70,7 @@ export default function ClientDetailPage() {
       setLoading(false)
     }
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   async function handleNotesBlur() {
@@ -89,7 +88,6 @@ export default function ClientDetailPage() {
     }
   }
 
-  // Group photos by appointment_id for before/after pairs
   const photoPairs = photos.reduce<Record<string, Photo[]>>((acc, photo) => {
     const key = photo.appointment_id ?? 'unlinked'
     if (!acc[key]) acc[key] = []
@@ -97,12 +95,11 @@ export default function ClientDetailPage() {
     return acc
   }, {})
 
-  if (loading) return <div className="p-8 text-gray-400">Loading…</div>
+  if (loading) return <div className="p-8 text-gray-400">Loading&#8230;</div>
   if (!client) return <div className="p-8 text-red-500">Client not found.</div>
 
   return (
     <div className="p-8 max-w-4xl">
-      {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -130,7 +127,6 @@ export default function ClientDetailPage() {
         </button>
       </div>
 
-      {/* Visit History */}
       <section className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Visit History</h2>
         {appointments.length === 0 ? (
@@ -167,7 +163,6 @@ export default function ClientDetailPage() {
         )}
       </section>
 
-      {/* Photos */}
       <section className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Photos</h2>
         {photos.length === 0 ? (
@@ -212,7 +207,6 @@ export default function ClientDetailPage() {
         )}
       </section>
 
-      {/* Notes */}
       <section className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-gray-900">Notes</h2>

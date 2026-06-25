@@ -1,12 +1,10 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, Users, Calendar, Gift, Settings, LogOut } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
-
-const supabase = createClient()
-import { useEffect, useState } from 'react'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -17,6 +15,7 @@ const navItems = [
 ]
 
 export default function Sidebar() {
+  const supabase = createClient()
   const pathname = usePathname()
   const router = useRouter()
   const [userEmail, setUserEmail] = useState<string | null>(null)
@@ -25,6 +24,7 @@ export default function Sidebar() {
     supabase.auth.getUser().then(({ data }) => {
       setUserEmail(data.user?.email ?? null)
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSignOut() {

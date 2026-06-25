@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase-browser'
 
-const supabase = createClient()
-
 interface Appointment {
   id: string
   scheduled_at: string
@@ -26,6 +24,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default function AppointmentsPage() {
+  const supabase = createClient()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -38,6 +37,7 @@ export default function AppointmentsPage() {
         setAppointments((data as Appointment[]) ?? [])
         setLoading(false)
       })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

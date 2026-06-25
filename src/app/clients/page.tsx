@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase-browser'
-
-const supabase = createClient()
 import { Search } from 'lucide-react'
 
 interface Client {
@@ -19,6 +17,7 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const supabase = createClient()
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -32,6 +31,7 @@ export default function ClientsPage() {
         setClients((data as Client[]) ?? [])
         setLoading(false)
       })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const filtered = clients.filter((c) => {
