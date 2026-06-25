@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --teal: #47A1A0;
+  --gold: #FEB74B;
+  --navy: #1a2332;
+}
