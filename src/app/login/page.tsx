@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase-browser'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export default function LoginPage() {
-  const supabase = createClient()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -16,6 +17,17 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+
+    // Create client only when needed, fully client-side
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        autoRefreshToken: typeof window !== 'undefined',
+        persistSession: typeof window !== 'undefined',
+        detectSessionInUrl: typeof window !== 'undefined',
+      },
+    })
 
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
@@ -34,7 +46,6 @@ export default function LoginPage() {
           SmileSpark CRM
         </h1>
         <p className="text-center text-gray-500 mb-8 text-sm">Sign in to your account</p>
-
         <form onSubmit={handleSignIn} className="space-y-5">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -50,7 +61,6 @@ export default function LoginPage() {
               placeholder="you@example.com"
             />
           </div>
-
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               Password
@@ -65,11 +75,9 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
           </div>
-
           {error && (
             <p className="text-red-500 text-sm text-center">{error}</p>
           )}
-
           <button
             type="submit"
             disabled={loading}
