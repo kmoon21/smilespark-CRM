@@ -44,7 +44,8 @@ export default function NewClientPage() {
     setSaving(true)
     setError(null)
 
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from('crm_clients')
       .insert({
         first_name: form.first_name,

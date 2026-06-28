@@ -56,17 +56,33 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     async function load() {
-      const [clientRes, apptRes, photoRes] = await Promise.all([
-        supabase.from('crm_clients').select('*').eq('id', id).single(),
-        supabase.from('crm_appointments').select('*').eq('client_id', id).order('scheduled_at', { ascending: false }),
-        supabase.from('crm_photos').select('*').eq('client_id', id).order('taken_at', { ascending: false }),
-      ])
-      if (clientRes.data) {
-        setClient(clientRes.data as Client)
-        setNotes(clientRes.data.notes ?? '')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: clientData } = await (supabase as any)
+        .from('crm_clients')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: apptData } = await (supabase as any)
+        .from('crm_appointments')
+        .select('*')
+        .eq('client_id', id)
+        .order('scheduled_at', { ascending: false })
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: photoData } = await (supabase as any)
+        .from('crm_photos')
+        .select('*')
+        .eq('client_id', id)
+        .order('taken_at', { ascending: false })
+
+      if (clientData) {
+        setClient(clientData as Client)
+        setNotes((clientData as Client).notes ?? '')
       }
-      setAppointments((apptRes.data as Appointment[]) ?? [])
-      setPhotos((photoRes.data as Photo[]) ?? [])
+      setAppointments((apptData as Appointment[]) ?? [])
+      setPhotos((photoData as Photo[]) ?? [])
       setLoading(false)
     }
     load()
@@ -75,7 +91,8 @@ export default function ClientDetailPage() {
 
   async function handleNotesBlur() {
     if (!client) return
-    await supabase.from('crm_clients').update({ notes }).eq('id', id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('crm_clients').update({ notes }).eq('id', id)
     setSavedNotes(true)
     setTimeout(() => setSavedNotes(false), 2000)
   }
@@ -108,7 +125,9 @@ export default function ClientDetailPage() {
           <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
             {client.phone && <span>{client.phone}</span>}
             {client.email && <span>{client.email}</span>}
-            {client.birthday && <span>Born {format(new Date(client.birthday), 'MMM d, yyyy')}</span>}
+            {client.birthday && (
+              <span>Born {format(new Date(client.birthday), 'MMM d, yyyy')}</span>
+            )}
           </div>
           {client.referral_code && (
             <div className="flex items-center gap-2 mt-3">
@@ -145,7 +164,9 @@ export default function ClientDetailPage() {
             <tbody className="divide-y divide-gray-100">
               {appointments.map((appt) => (
                 <tr key={appt.id}>
-                  <td className="py-2.5 text-gray-700">{format(new Date(appt.scheduled_at), 'MMM d, yyyy h:mm a')}</td>
+                  <td className="py-2.5 text-gray-700">
+                    {format(new Date(appt.scheduled_at), 'MMM d, yyyy h:mm a')}
+                  </td>
                   <td className="py-2.5 text-gray-700">{appt.service_type}</td>
                   <td className="py-2.5">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[appt.status] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -155,7 +176,9 @@ export default function ClientDetailPage() {
                   <td className="py-2.5 text-gray-700">
                     {appt.amount_paid != null ? `$${appt.amount_paid.toFixed(2)}` : '—'}
                   </td>
-                  <td className="py-2.5 text-gray-500 text-xs max-w-xs truncate">{appt.notes ?? '—'}</td>
+                  <td className="py-2.5 text-gray-500 text-xs max-w-xs truncate">
+                    {appt.notes ?? '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -166,7 +189,9 @@ export default function ClientDetailPage() {
       <section className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Photos</h2>
         {photos.length === 0 ? (
-          <p className="text-gray-400 text-sm">No photos yet. Photos will appear here after appointments.</p>
+          <p className="text-gray-400 text-sm">
+            No photos yet. Photos will appear here after appointments.
+          </p>
         ) : (
           <div className="space-y-6">
             {Object.entries(photoPairs).map(([apptId, apptPhotos]) => {
@@ -175,16 +200,26 @@ export default function ClientDetailPage() {
               const date = apptPhotos[0]?.taken_at
               return (
                 <div key={apptId}>
-                  {date && <p className="text-xs text-gray-500 mb-2">{format(new Date(date), 'MMM d, yyyy')}</p>}
+                  {date && (
+                    <p className="text-xs text-gray-500 mb-2">
+                      {format(new Date(date), 'MMM d, yyyy')}
+                    </p>
+                  )}
                   <div className="flex gap-4">
                     {before && (
                       <div className="flex-1">
                         <p className="text-xs font-medium text-gray-500 mb-1">Before</p>
                         {before.storage_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={before.storage_url} alt="Before" className="w-full rounded-lg object-cover h-48" />
+                          <img
+                            src={before.storage_url}
+                            alt="Before"
+                            className="w-full rounded-lg object-cover h-48"
+                          />
                         ) : (
-                          <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm">No image</div>
+                          <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm">
+                            No image
+                          </div>
                         )}
                       </div>
                     )}
@@ -193,9 +228,15 @@ export default function ClientDetailPage() {
                         <p className="text-xs font-medium text-gray-500 mb-1">After</p>
                         {after.storage_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={after.storage_url} alt="After" className="w-full rounded-lg object-cover h-48" />
+                          <img
+                            src={after.storage_url}
+                            alt="After"
+                            className="w-full rounded-lg object-cover h-48"
+                          />
                         ) : (
-                          <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm">No image</div>
+                          <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-sm">
+                            No image
+                          </div>
                         )}
                       </div>
                     )}

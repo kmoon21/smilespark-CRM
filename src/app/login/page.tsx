@@ -2,9 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+import { createClient } from '@/lib/supabase-browser'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -18,37 +16,41 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    // Create client only when needed, fully client-side
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        autoRefreshToken: typeof window !== 'undefined',
-        persistSession: typeof window !== 'undefined',
-        detectSessionInUrl: typeof window !== 'undefined',
-      },
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
     })
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       setError(error.message)
       setLoading(false)
     } else {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        // Set a simple auth cookie the middleware can read
+        document.cookie = `sb-auth=true; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+      }
       router.push('/dashboard')
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-center mb-2" style={{ color: '#1a2332' }}>
+    <div className="min-h-screen bg-gray-100 flex items-center
+      justify-center">
+      <div className="bg-white rounded-2xl shadow-lg p-10 w-full
+        max-w-md">
+        <h1 className="text-3xl font-bold text-center mb-2"
+          style={{ color: '#1a2332' }}>
           SmileSpark CRM
         </h1>
-        <p className="text-center text-gray-500 mb-8 text-sm">Sign in to your account</p>
+        <p className="text-center text-gray-500 mb-8 text-sm">
+          Sign in to your account
+        </p>
         <form onSubmit={handleSignIn} className="space-y-5">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email"
+              className="block text-sm font-medium text-gray-700 mb-1">
               Email
             </label>
             <input
@@ -57,12 +59,15 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-gray-300 rounded-lg
+                px-4 py-2.5 text-sm focus:outline-none focus:ring-2
+                focus:ring-teal-500"
               placeholder="you@example.com"
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1">
               Password
             </label>
             <input
@@ -71,7 +76,9 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full border border-gray-300 rounded-lg
+                px-4 py-2.5 text-sm focus:outline-none focus:ring-2
+                focus:ring-teal-500"
               placeholder="••••••••"
             />
           </div>
@@ -81,7 +88,9 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg text-white font-semibold text-sm transition-opacity disabled:opacity-60"
+            className="w-full py-2.5 rounded-lg text-white
+              font-semibold text-sm transition-opacity
+              disabled:opacity-60"
             style={{ backgroundColor: '#47A1A0' }}
           >
             {loading ? 'Signing in…' : 'Sign In'}
