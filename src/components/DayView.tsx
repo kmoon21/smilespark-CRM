@@ -140,7 +140,7 @@ export default function DayView({
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto" ref={gridRef}>
-        <div className="flex" style={{ height: TOTAL_HEIGHT }}>
+        <div className="flex" style={{ height: TOTAL_HEIGHT + 10, paddingTop: 10 }}>
 
           {/* Time axis */}
           <div className="w-16 flex-shrink-0 relative" style={{ height: TOTAL_HEIGHT }}>
@@ -167,10 +167,10 @@ export default function DayView({
                 style={{
                   top,
                   borderTop: isHour
-                    ? '1px solid #e5e7eb'
+                    ? '1px solid #d1d5db'
                     : isHalf
-                      ? '1px solid #f0f0f0'
-                      : '1px dashed #ebebeb',
+                      ? '1px solid #e5e7eb'
+                      : '1px dotted #e0e0e0',
                 }}
               />
             ))}
