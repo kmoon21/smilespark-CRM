@@ -11,6 +11,17 @@ import type { AppointmentFull } from './DayView'
 
 const SERVICE_OPTIONS: ServiceType[] = ['30min', '60min', '90min', 'brand_ambassador', 'family_friends']
 
+const DEFAULT_PRICES: Record<string, number> = {
+  '30min':          99,
+  '60min':          175,
+  '90min':          225,
+  brand_ambassador: 175,
+  family_friends:   99,
+}
+
+const PAYMENT_METHODS = ['Cash', 'Card', 'Square', 'Comp', 'Package'] as const
+type PaymentMethod = typeof PAYMENT_METHODS[number]
+
 const STATUS_LABELS: Record<string, string> = {
   scheduled:  'Scheduled',
   checked_in: 'Checked In',
@@ -47,6 +58,19 @@ export default function AppointmentModal({
   const [savingStatus, setSavingStatus] = useState<string | null>(null)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const serviceRef = useRef<HTMLDivElement>(null)
+
+  // Payment state
+  const [amountPaid, setAmountPaid] = useState<number | null>(appt.amount_paid ?? null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    (appt.payment_method as PaymentMethod | null) ?? 'Card'
+  )
+  const [amountInput, setAmountInput] = useState(
+    appt.amount_paid != null
+      ? appt.amount_paid.toFixed(2)
+      : (DEFAULT_PRICES[appt.service_type] ?? 175).toFixed(2)
+  )
+  const [editingPayment, setEditingPayment] = useState(false)
+  const [savingPayment, setSavingPayment] = useState(false)
 
   // Close service picker on outside click
   useEffect(() => {
@@ -106,6 +130,25 @@ export default function AppointmentModal({
       .eq('id', appt.id)
     onUpdate({ ...appt, status, notes: value })
     setSaving(false)
+  }
+
+  async function savePayment() {
+    const amount = parseFloat(amountInput)
+    if (isNaN(amount) || amount < 0) return
+    setSavingPayment(true)
+    const supabase = createClient()
+    await supabase
+      .from('crm_appointments')
+      .update({
+        amount_paid: amount,
+        payment_method: paymentMethod,
+        paid_at: new Date().toISOString(),
+      } as never)
+      .eq('id', appt.id)
+    setAmountPaid(amount)
+    setEditingPayment(false)
+    onUpdate({ ...appt, service_type: serviceType, status, notes, amount_paid: amount, payment_method: paymentMethod })
+    setSavingPayment(false)
   }
 
   function handleNotesChange(value: string) {
@@ -269,6 +312,78 @@ export default function AppointmentModal({
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none bg-gray-50"
               />
             </div>
+
+            {/* Payment — only when completed */}
+            {status === 'completed' && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+                    Payment
+                  </label>
+                  {amountPaid != null && !editingPayment && (
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
+                      <Check size={11} />
+                      Paid · ${amountPaid.toFixed(2)} · {paymentMethod}
+                    </span>
+                  )}
+                </div>
+
+                {(amountPaid == null || editingPayment) ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">Amount ($)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={amountInput}
+                          onChange={e => setAmountInput(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">Method</label>
+                        <select
+                          value={paymentMethod}
+                          onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white"
+                        >
+                          {PAYMENT_METHODS.map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={savePayment}
+                        disabled={savingPayment}
+                        className="flex-1 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50 transition-opacity"
+                        style={{ backgroundColor: '#47A1A0' }}
+                      >
+                        {savingPayment ? 'Saving…' : 'Save Payment'}
+                      </button>
+                      {editingPayment && (
+                        <button
+                          onClick={() => setEditingPayment(false)}
+                          className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setEditingPayment(true)}
+                    className="w-full text-left text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
+                  >
+                    Edit payment
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Status action buttons */}
             {!isTerminal && (

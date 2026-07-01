@@ -25,6 +25,8 @@ export type AppointmentFull = {
   status: string
   chair_number: number | null
   notes: string | null
+  amount_paid: number | null
+  payment_method: string | null
   crm_clients: { first_name: string; last_name: string } | null
 }
 

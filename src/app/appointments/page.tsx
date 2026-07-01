@@ -42,7 +42,7 @@ export default function AppointmentsPage() {
 
     supabase
       .from('crm_appointments')
-      .select('id, client_id, scheduled_at, service_type, status, chair_number, notes, crm_clients(first_name, last_name)')
+      .select('id, client_id, scheduled_at, service_type, status, chair_number, notes, amount_paid, payment_method, crm_clients(first_name, last_name)')
       .gte('scheduled_at', from)
       .lte('scheduled_at', to)
       .neq('status', 'cancelled')
