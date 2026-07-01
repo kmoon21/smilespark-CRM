@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { isToday } from 'date-fns'
 import { SERVICE_DURATION_MINUTES } from '@/lib/capacity'
 import { getServiceColors, getStatusBorder } from '@/lib/service-colors'
@@ -20,10 +19,12 @@ import {
 
 export type AppointmentFull = {
   id: string
+  client_id: string
   scheduled_at: string
   service_type: string
   status: string
   chair_number: number | null
+  notes: string | null
   crm_clients: { first_name: string; last_name: string } | null
 }
 
@@ -64,7 +65,7 @@ function computeLayout(appts: AppointmentFull[]): LayoutAppt[] {
 
 const GAP = 3
 
-function ApptBlock({ appt }: { appt: LayoutAppt }) {
+function ApptBlock({ appt, onClick }: { appt: LayoutAppt; onClick: (a: AppointmentFull) => void }) {
   const { bg, text } = getServiceColors(appt.service_type)
   const borderColor = getStatusBorder(appt.status)
   const top = topPx(appt.scheduled_at)
@@ -84,9 +85,9 @@ function ApptBlock({ appt }: { appt: LayoutAppt }) {
       : `calc(${(appt.colCount - appt.col - 1) * pct}% + ${appt.col === appt.colCount - 1 ? GAP : GAP / 2}px)`
 
   return (
-    <Link
-      href={`/appointments/${appt.id}`}
-      className="absolute rounded-lg overflow-hidden hover:brightness-95 transition-all shadow-sm"
+    <button
+      onClick={() => onClick(appt)}
+      className="absolute rounded-lg overflow-hidden hover:brightness-95 transition-all shadow-sm text-left w-auto"
       style={{
         top, height, left: leftCalc, right: rightCalc,
         backgroundColor: bg, color: text,
@@ -102,16 +103,18 @@ function ApptBlock({ appt }: { appt: LayoutAppt }) {
           <p className="text-xs opacity-70 mt-0.5">{formatLocalTime(appt.scheduled_at)}</p>
         )}
       </div>
-    </Link>
+    </button>
   )
 }
 
 export default function DayView({
   appointments,
   date,
+  onApptClick,
 }: {
   appointments: AppointmentFull[]
   date: Date
+  onApptClick: (appt: AppointmentFull) => void
 }) {
   const gridRef = useRef<HTMLDivElement>(null)
   const [nowTop, setNowTop] = useState<number | null>(null)
@@ -180,7 +183,7 @@ export default function DayView({
                 style={{ top: nowTop }}
               />
             )}
-            {laid.map(appt => <ApptBlock key={appt.id} appt={appt} />)}
+            {laid.map(appt => <ApptBlock key={appt.id} appt={appt} onClick={onApptClick} />)}
             {appointments.length === 0 && (
               <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-300">
                 No appointments this day

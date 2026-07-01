@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
 import { addDays, format, isToday } from 'date-fns'
 import { SERVICE_DURATION_MINUTES } from '@/lib/capacity'
 import { getServiceColors, getStatusBorder } from '@/lib/service-colors'
@@ -33,10 +32,12 @@ export default function WeekView({
   appointments,
   weekStart,
   onDayClick,
+  onApptClick,
 }: {
   appointments: AppointmentFull[]
   weekStart: Date
   onDayClick: (date: Date) => void
+  onApptClick: (appt: AppointmentFull) => void
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const gridRef = useRef<HTMLDivElement>(null)
@@ -178,10 +179,10 @@ export default function WeekView({
                     : '?'
 
                   return (
-                    <Link
+                    <button
                       key={appt.id}
-                      href={`/appointments/${appt.id}`}
-                      className="absolute left-0.5 right-0.5 rounded overflow-hidden hover:brightness-95 transition-all shadow-sm"
+                      onClick={() => onApptClick(appt)}
+                      className="absolute left-0.5 right-0.5 rounded overflow-hidden hover:brightness-95 transition-all shadow-sm text-left"
                       style={{ top, height, backgroundColor: bg, color: text, borderLeft: `3px solid ${borderColor}` }}
                     >
                       <div className="px-1.5 py-1 h-full flex flex-col overflow-hidden">
@@ -199,7 +200,7 @@ export default function WeekView({
                           </p>
                         )}
                       </div>
-                    </Link>
+                    </button>
                   )
                 })}
 

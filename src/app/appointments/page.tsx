@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase-browser'
 import Sidebar from '@/components/Sidebar'
 import DayView, { type AppointmentFull } from '@/components/DayView'
 import WeekView from '@/components/WeekView'
+import AppointmentModal from '@/components/AppointmentModal'
 import { SERVICE_COLORS, SERVICE_LABELS, STATUS_BORDER, type ServiceType } from '@/lib/service-colors'
 
 type View = 'day' | 'week'
@@ -24,6 +25,7 @@ export default function AppointmentsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [appointments, setAppointments] = useState<AppointmentFull[]>([])
   const [loading, setLoading] = useState(true)
+  const [modalAppt, setModalAppt] = useState<AppointmentFull | null>(null)
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 })
@@ -40,7 +42,7 @@ export default function AppointmentsPage() {
 
     supabase
       .from('crm_appointments')
-      .select('id, scheduled_at, service_type, status, chair_number, crm_clients(first_name, last_name)')
+      .select('id, client_id, scheduled_at, service_type, status, chair_number, notes, crm_clients(first_name, last_name)')
       .gte('scheduled_at', from)
       .lte('scheduled_at', to)
       .neq('status', 'cancelled')
@@ -51,6 +53,11 @@ export default function AppointmentsPage() {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, view])
+
+  function handleApptUpdate(updated: AppointmentFull) {
+    setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a))
+    setModalAppt(updated)
+  }
 
   function goBack() {
     setSelectedDate(d => addDays(d, view === 'day' ? -1 : -7))
@@ -145,16 +152,30 @@ export default function AppointmentsPage() {
         {/* Calendar body */}
         <div className="flex-1 overflow-hidden">
           {view === 'day' ? (
-            <DayView appointments={appointments} date={selectedDate} />
+            <DayView
+              appointments={appointments}
+              date={selectedDate}
+              onApptClick={setModalAppt}
+            />
           ) : (
             <WeekView
               appointments={appointments}
               weekStart={weekStart}
               onDayClick={(d) => { setSelectedDate(d); setView('day') }}
+              onApptClick={setModalAppt}
             />
           )}
         </div>
       </main>
+
+      {/* Appointment detail modal */}
+      {modalAppt && (
+        <AppointmentModal
+          appt={modalAppt}
+          onClose={() => setModalAppt(null)}
+          onUpdate={handleApptUpdate}
+        />
+      )}
     </div>
   )
 }
