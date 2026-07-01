@@ -38,7 +38,7 @@ export default function Sidebar() {
       <div className="px-5 py-5 border-b border-white/10">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/TRANSPRNCY HI RES 1.png"
+          src="/smilespark-logo.png"
           alt="SmileSpark"
           style={{ width: 160, height: 'auto' }}
         />
