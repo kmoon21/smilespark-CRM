@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, Calendar, Gift, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Gift, Settings, LogOut, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Check In', href: '/checkin', icon: UserCheck },
   { label: 'Clients', href: '/clients', icon: Users },
   { label: 'Appointments', href: '/appointments', icon: Calendar },
   { label: 'Referrals', href: '/referrals', icon: Gift },

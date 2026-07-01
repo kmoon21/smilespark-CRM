@@ -2,108 +2,158 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { format } from 'date-fns'
+import {
+  addDays,
+  endOfDay,
+  endOfWeek,
+  format,
+  startOfDay,
+  startOfWeek,
+} from 'date-fns'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
+import Sidebar from '@/components/Sidebar'
+import DayView, { type AppointmentFull } from '@/components/DayView'
+import WeekView from '@/components/WeekView'
 
-interface Appointment {
-  id: string
-  scheduled_at: string
-  service_type: string
-  status: string
-  amount_paid: number | null
-  notes: string | null
-  crm_clients: { first_name: string; last_name: string } | null
-}
-
-const statusColors: Record<string, string> = {
-  scheduled: 'bg-yellow-100 text-yellow-700',
-  checked_in: 'bg-blue-100 text-blue-700',
-  completed: 'bg-green-100 text-green-700',
-  no_show: 'bg-red-100 text-red-700',
-  cancelled: 'bg-gray-100 text-gray-600',
-}
+type View = 'day' | 'week'
 
 export default function AppointmentsPage() {
-  const supabase = createClient()
-  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [view, setView] = useState<View>('day')
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [appointments, setAppointments] = useState<AppointmentFull[]>([])
   const [loading, setLoading] = useState(true)
 
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 })
+
   useEffect(() => {
+    setLoading(true)
+    const supabase = createClient()
+    const from = view === 'day'
+      ? startOfDay(selectedDate).toISOString()
+      : weekStart.toISOString()
+    const to = view === 'day'
+      ? endOfDay(selectedDate).toISOString()
+      : weekEnd.toISOString()
+
     supabase
       .from('crm_appointments')
-      .select('*, crm_clients(first_name, last_name)')
-      .order('scheduled_at', { ascending: false })
+      .select('id, scheduled_at, service_type, status, chair_number, crm_clients(first_name, last_name)')
+      .gte('scheduled_at', from)
+      .lte('scheduled_at', to)
+      .neq('status', 'cancelled')
+      .order('scheduled_at')
       .then(({ data }) => {
-        setAppointments((data as Appointment[]) ?? [])
+        setAppointments((data as AppointmentFull[]) ?? [])
         setLoading(false)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [selectedDate, view])
+
+  function goBack() {
+    setSelectedDate(d => addDays(d, view === 'day' ? -1 : -7))
+  }
+  function goForward() {
+    setSelectedDate(d => addDays(d, view === 'day' ? 1 : 7))
+  }
+
+  const dateLabel = view === 'day'
+    ? format(selectedDate, 'EEEE, MMMM d, yyyy')
+    : `${format(weekStart, 'MMM d')} – ${format(weekEnd, 'MMM d, yyyy')}`
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-        <Link
-          href="/appointments/new"
-          className="px-4 py-2.5 rounded-lg text-white text-sm font-medium"
-          style={{ backgroundColor: '#47A1A0' }}
-        >
-          + New Appointment
-        </Link>
-      </div>
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 ml-64 flex flex-col overflow-hidden">
 
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        {loading ? (
-          <p className="text-gray-400 text-sm p-6">Loading appointments…</p>
-        ) : appointments.length === 0 ? (
-          <p className="text-gray-400 text-sm p-6">No appointments yet.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="px-5 py-3">Client</th>
-                <th className="px-5 py-3">Service</th>
-                <th className="px-5 py-3">Date & Time</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Amount</th>
-                <th className="px-5 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {appointments.map((appt) => (
-                <tr key={appt.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-5 py-3 font-medium text-gray-900">
-                    {appt.crm_clients
-                      ? `${appt.crm_clients.first_name} ${appt.crm_clients.last_name}`
-                      : '—'}
-                  </td>
-                  <td className="px-5 py-3 text-gray-600">{appt.service_type}</td>
-                  <td className="px-5 py-3 text-gray-600">
-                    {format(new Date(appt.scheduled_at), 'MMM d, yyyy h:mm a')}
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusColors[appt.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {appt.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-gray-600">
-                    {appt.amount_paid != null ? `$${appt.amount_paid.toFixed(2)}` : '—'}
-                  </td>
-                  <td className="px-5 py-3">
-                    <Link
-                      href={`/appointments/${appt.id}`}
-                      className="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-100 transition-colors"
-                    >
-                      View
-                    </Link>
-                  </td>
-                </tr>
+        {/* Header */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goBack}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              onClick={() => setSelectedDate(new Date())}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
+            >
+              Today
+            </button>
+            <button
+              onClick={goForward}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-500"
+            >
+              <ChevronRight size={20} />
+            </button>
+            <h1 className="ml-2 text-base font-semibold text-gray-800">
+              {dateLabel}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* View toggle */}
+            <div className="flex border border-gray-200 rounded-lg overflow-hidden text-sm">
+              {(['day', 'week'] as View[]).map(v => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className="px-4 py-1.5 font-medium capitalize transition-colors"
+                  style={
+                    view === v
+                      ? { backgroundColor: '#47A1A0', color: 'white' }
+                      : { backgroundColor: 'white', color: '#6b7280' }
+                  }
+                >
+                  {v}
+                </button>
               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </div>
+
+            <Link
+              href="/appointments/new"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-white text-sm font-medium"
+              style={{ backgroundColor: '#1a2332' }}
+            >
+              <Plus size={16} />
+              New Appointment
+            </Link>
+          </div>
+        </div>
+
+        {/* Status legend */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-5">
+          {[
+            { label: 'Scheduled', color: '#47A1A0' },
+            { label: 'Checked In', color: '#3b82f6' },
+            { label: 'Completed', color: '#22c55e' },
+            { label: 'No Show', color: '#9ca3af' },
+          ].map(({ label, color }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+              <span className="text-xs text-gray-500">{label}</span>
+            </div>
+          ))}
+          {loading && (
+            <span className="ml-auto text-xs text-gray-400">Loading…</span>
+          )}
+        </div>
+
+        {/* Calendar body */}
+        <div className="flex-1 overflow-hidden">
+          {view === 'day' ? (
+            <DayView appointments={appointments} date={selectedDate} />
+          ) : (
+            <WeekView
+              appointments={appointments}
+              weekStart={weekStart}
+              onDayClick={(d) => { setSelectedDate(d); setView('day') }}
+            />
+          )}
+        </div>
+      </main>
     </div>
   )
 }
