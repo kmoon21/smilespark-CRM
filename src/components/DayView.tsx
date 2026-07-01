@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { isToday } from 'date-fns'
+import { Star } from 'lucide-react'
 import { SERVICE_DURATION_MINUTES } from '@/lib/capacity'
 import { getServiceColors, getStatusBorder } from '@/lib/service-colors'
 import {
@@ -67,7 +68,7 @@ function computeLayout(appts: AppointmentFull[]): LayoutAppt[] {
 
 const GAP = 3
 
-function ApptBlock({ appt, onClick }: { appt: LayoutAppt; onClick: (a: AppointmentFull) => void }) {
+function ApptBlock({ appt, onClick, hasPkg }: { appt: LayoutAppt; onClick: (a: AppointmentFull) => void; hasPkg?: boolean }) {
   const { bg, text } = getServiceColors(appt.service_type)
   const borderColor = getStatusBorder(appt.status)
   const top = topPx(appt.scheduled_at)
@@ -96,8 +97,11 @@ function ApptBlock({ appt, onClick }: { appt: LayoutAppt; onClick: (a: Appointme
         borderLeft: `3px solid ${borderColor}`,
       }}
     >
-      <div className="px-2 py-1.5 h-full flex flex-col overflow-hidden">
-        <p className="text-xs font-bold leading-tight truncate">{name}</p>
+      <div className="px-2 py-1.5 h-full flex flex-col overflow-hidden relative">
+        {hasPkg && (
+          <Star size={11} className="absolute top-1 right-1 flex-shrink-0" style={{ color: '#FEB74B', fill: '#FEB74B' }} />
+        )}
+        <p className="text-xs font-bold leading-tight truncate pr-3">{name}</p>
         {height >= 96 && (
           <p className="text-xs opacity-80 mt-0.5">{appt.service_type.replace('_', ' ')}</p>
         )}
@@ -113,10 +117,12 @@ export default function DayView({
   appointments,
   date,
   onApptClick,
+  pkgClientIds,
 }: {
   appointments: AppointmentFull[]
   date: Date
   onApptClick: (appt: AppointmentFull) => void
+  pkgClientIds?: Set<string>
 }) {
   const gridRef = useRef<HTMLDivElement>(null)
   const [nowTop, setNowTop] = useState<number | null>(null)
@@ -185,7 +191,7 @@ export default function DayView({
                 style={{ top: nowTop }}
               />
             )}
-            {laid.map(appt => <ApptBlock key={appt.id} appt={appt} onClick={onApptClick} />)}
+            {laid.map(appt => <ApptBlock key={appt.id} appt={appt} onClick={onApptClick} hasPkg={pkgClientIds?.has(appt.client_id)} />)}
             {appointments.length === 0 && (
               <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-300">
                 No appointments this day

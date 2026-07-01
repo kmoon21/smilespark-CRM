@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { addDays, format, isToday } from 'date-fns'
+import { Star } from 'lucide-react'
 import { SERVICE_DURATION_MINUTES } from '@/lib/capacity'
 import { getServiceColors, getStatusBorder } from '@/lib/service-colors'
 import {
@@ -33,11 +34,13 @@ export default function WeekView({
   weekStart,
   onDayClick,
   onApptClick,
+  pkgClientIds,
 }: {
   appointments: AppointmentFull[]
   weekStart: Date
   onDayClick: (date: Date) => void
   onApptClick: (appt: AppointmentFull) => void
+  pkgClientIds?: Set<string>
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const gridRef = useRef<HTMLDivElement>(null)
@@ -185,8 +188,11 @@ export default function WeekView({
                       className="absolute left-0.5 right-0.5 rounded overflow-hidden hover:brightness-95 transition-all shadow-sm text-left"
                       style={{ top, height, backgroundColor: bg, color: text, borderLeft: `3px solid ${borderColor}` }}
                     >
-                      <div className="px-1.5 py-1 h-full flex flex-col overflow-hidden">
-                        <p className="text-xs font-bold leading-tight truncate" style={{ fontSize: '10px' }}>
+                      <div className="px-1.5 py-1 h-full flex flex-col overflow-hidden relative">
+                        {pkgClientIds?.has(appt.client_id) && (
+                          <Star size={9} className="absolute top-0.5 right-0.5 flex-shrink-0" style={{ color: '#FEB74B', fill: '#FEB74B' }} />
+                        )}
+                        <p className="text-xs font-bold leading-tight truncate pr-2.5" style={{ fontSize: '10px' }}>
                           {formatLocalTime(appt.scheduled_at)}
                         </p>
                         {height >= 64 && (

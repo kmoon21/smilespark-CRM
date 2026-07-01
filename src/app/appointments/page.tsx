@@ -26,6 +26,7 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<AppointmentFull[]>([])
   const [loading, setLoading] = useState(true)
   const [modalAppt, setModalAppt] = useState<AppointmentFull | null>(null)
+  const [pkgClientIds, setPkgClientIds] = useState(new Set<string>())
 
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 })
@@ -53,6 +54,17 @@ export default function AppointmentsPage() {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, view])
+
+  // Fetch active package holders once on mount
+  useEffect(() => {
+    createClient()
+      .from('crm_packages')
+      .select('client_id')
+      .gt('sessions_remaining', 0)
+      .then(({ data }) => {
+        if (data) setPkgClientIds(new Set((data as { client_id: string }[]).map(r => r.client_id)))
+      })
+  }, [])
 
   function handleApptUpdate(updated: AppointmentFull) {
     setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a))
@@ -156,6 +168,7 @@ export default function AppointmentsPage() {
               appointments={appointments}
               date={selectedDate}
               onApptClick={setModalAppt}
+              pkgClientIds={pkgClientIds}
             />
           ) : (
             <WeekView
@@ -163,6 +176,7 @@ export default function AppointmentsPage() {
               weekStart={weekStart}
               onDayClick={(d) => { setSelectedDate(d); setView('day') }}
               onApptClick={setModalAppt}
+              pkgClientIds={pkgClientIds}
             />
           )}
         </div>

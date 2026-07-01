@@ -71,6 +71,7 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true)
   const [packages, setPackages] = useState<Package[]>([])
   const [usingSession, setUsingSession] = useState<string | null>(null)
+  const [referralCredit, setReferralCredit] = useState(0)
 
   useEffect(() => {
     async function load() {
@@ -103,6 +104,12 @@ export default function ClientDetailPage() {
         .gt('sessions_remaining', 0)
         .order('purchased_at', { ascending: false })
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count: refCount } = await (supabase as any)
+        .from('crm_clients')
+        .select('id', { count: 'exact', head: true })
+        .eq('referred_by_client_id', id)
+
       if (clientData) {
         setClient(clientData as Client)
         setNotes((clientData as Client).notes ?? '')
@@ -110,6 +117,7 @@ export default function ClientDetailPage() {
       setAppointments((apptData as Appointment[]) ?? [])
       setPhotos((photoData as Photo[]) ?? [])
       setPackages((pkgData as Package[]) ?? [])
+      setReferralCredit((refCount ?? 0) * 20)
       setLoading(false)
     }
     load()
@@ -186,6 +194,14 @@ export default function ClientDetailPage() {
               <button onClick={copyReferralCode} className="text-gray-400 hover:text-gray-600">
                 {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
               </button>
+            </div>
+          )}
+          {referralCredit > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-gray-500">Credit Balance:</span>
+              <span className="text-sm font-semibold" style={{ color: '#FEB74B' }}>
+                ${referralCredit.toFixed(2)}
+              </span>
             </div>
           )}
         </div>
