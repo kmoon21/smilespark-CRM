@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { X, Check, UserX, Ban, ExternalLink } from 'lucide-react'
+import { X, Check, UserX, Ban, ExternalLink, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
-import { getServiceColors, getStatusBorder, SERVICE_LABELS, type ServiceType } from '@/lib/service-colors'
+import { getServiceColors, getStatusBorder, SERVICE_COLORS, SERVICE_LABELS, type ServiceType } from '@/lib/service-colors'
 import { formatLocalTime } from '@/lib/time'
 import { SERVICE_DURATION_MINUTES } from '@/lib/capacity'
 import type { AppointmentFull } from './DayView'
+
+const SERVICE_OPTIONS: ServiceType[] = ['30min', '60min', '90min', 'brand_ambassador', 'family_friends']
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled:  'Scheduled',
@@ -37,10 +39,26 @@ export default function AppointmentModal({
   onUpdate: (updated: AppointmentFull) => void
 }) {
   const [status, setStatus] = useState(appt.status)
+  const [serviceType, setServiceType] = useState<ServiceType>(appt.service_type as ServiceType)
+  const [serviceOpen, setServiceOpen] = useState(false)
+  const [savingService, setSavingService] = useState(false)
   const [notes, setNotes] = useState(appt.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [savingStatus, setSavingStatus] = useState<string | null>(null)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const serviceRef = useRef<HTMLDivElement>(null)
+
+  // Close service picker on outside click
+  useEffect(() => {
+    if (!serviceOpen) return
+    function onOutside(e: MouseEvent) {
+      if (serviceRef.current && !serviceRef.current.contains(e.target as Node)) {
+        setServiceOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [serviceOpen])
 
   // Close on Escape
   useEffect(() => {
@@ -63,6 +81,22 @@ export default function AppointmentModal({
     setSavingStatus(null)
   }
 
+  async function updateService(newType: ServiceType) {
+    if (newType === serviceType) { setServiceOpen(false); return }
+    setSavingService(true)
+    setServiceOpen(false)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('crm_appointments')
+      .update({ service_type: newType } as never)
+      .eq('id', appt.id)
+    if (!error) {
+      setServiceType(newType)
+      onUpdate({ ...appt, service_type: newType, status, notes })
+    }
+    setSavingService(false)
+  }
+
   async function saveNotes(value: string) {
     setSaving(true)
     const supabase = createClient()
@@ -80,9 +114,9 @@ export default function AppointmentModal({
     notesTimer.current = setTimeout(() => saveNotes(value), 1000)
   }
 
-  const { bg } = getServiceColors(appt.service_type)
+  const { bg } = getServiceColors(serviceType)
   const borderColor = getStatusBorder(status)
-  const duration = SERVICE_DURATION_MINUTES[appt.service_type] ?? 60
+  const duration = SERVICE_DURATION_MINUTES[serviceType] ?? 60
   const clientName = appt.crm_clients
     ? `${appt.crm_clients.first_name} ${appt.crm_clients.last_name}`
     : 'Unknown'
@@ -128,16 +162,56 @@ export default function AppointmentModal({
 
             {/* Details grid */}
             <div className="space-y-3 mb-5">
-              {/* Service */}
-              <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
-                <span className="text-sm text-gray-400">Service</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: bg }} />
-                  <span className="text-sm font-semibold" style={{ color: '#1a2332' }}>
-                    {SERVICE_LABELS[appt.service_type as ServiceType] ?? appt.service_type}
-                    <span className="font-normal text-gray-400 ml-1">· {duration} min</span>
-                  </span>
-                </div>
+              {/* Service — tappable picker */}
+              <div className="relative py-2.5 border-b border-gray-100" ref={serviceRef}>
+                <button
+                  onClick={() => setServiceOpen(o => !o)}
+                  disabled={savingService}
+                  className="w-full flex items-center justify-between hover:bg-gray-50 rounded-lg px-1 -mx-1 transition-colors disabled:opacity-50"
+                >
+                  <span className="text-sm text-gray-400">Service</span>
+                  <div className="flex items-center gap-2">
+                    {savingService
+                      ? <span className="text-xs text-gray-400">saving…</span>
+                      : <>
+                          <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: bg }} />
+                          <span className="text-sm font-semibold" style={{ color: '#1a2332' }}>
+                            {SERVICE_LABELS[serviceType]}
+                            <span className="font-normal text-gray-400 ml-1">· {duration} min</span>
+                          </span>
+                          <ChevronDown size={14} className="text-gray-400" />
+                        </>
+                    }
+                  </div>
+                </button>
+
+                {serviceOpen && (
+                  <div className="absolute right-0 top-full mt-1 z-10 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden w-64">
+                    {SERVICE_OPTIONS.map(type => {
+                      const { bg: optBg } = SERVICE_COLORS[type]
+                      const selected = type === serviceType
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => updateService(type)}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0 text-left"
+                          style={selected ? { backgroundColor: optBg + '18' } : {}}
+                        >
+                          <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: optBg }} />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold" style={{ color: '#1a2332' }}>
+                              {SERVICE_LABELS[type]}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {SERVICE_DURATION_MINUTES[type]} min
+                            </p>
+                          </div>
+                          {selected && <Check size={14} style={{ color: '#47A1A0' }} />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Date */}
