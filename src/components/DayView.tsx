@@ -171,7 +171,7 @@ export default function DayView({
                     ? '1px solid #e5e7eb'
                     : isHalf
                       ? '1px solid #f0f0f0'
-                      : '1px dotted #f5f5f5',
+                      : '1px dashed #ebebeb',
                 }}
               />
             ))}
