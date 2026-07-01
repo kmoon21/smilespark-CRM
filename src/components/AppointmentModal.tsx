@@ -22,6 +22,41 @@ const DEFAULT_PRICES: Record<string, number> = {
 const PAYMENT_METHODS = ['Cash', 'Card', 'Square', 'Comp', 'Package'] as const
 type PaymentMethod = typeof PAYMENT_METHODS[number]
 
+interface ActivePackage {
+  id: string
+  package_type: string
+  total_sessions: number
+  sessions_used: number
+  sessions_remaining: number
+  purchased_at: string
+}
+
+type PackagePlan = {
+  type: string
+  label: string
+  sublabel: string
+  sessions: number
+  price: number
+}
+
+const PACKAGE_OPTIONS: Record<string, PackagePlan[]> = {
+  '60min': [
+    { type: '60min_3pack', label: '3-Pack $450', sublabel: 'today + 2 more', sessions: 3, price: 450 },
+    { type: '60min_6pack', label: '6-Pack $825', sublabel: 'today + 5 more', sessions: 6, price: 825 },
+  ],
+  '90min': [
+    { type: '90min_3pack', label: '3-Pack $540', sublabel: 'today + 2 more', sessions: 3, price: 540 },
+    { type: '90min_6pack', label: '6-Pack $990', sublabel: 'today + 5 more', sessions: 6, price: 990 },
+  ],
+}
+
+const PKG_TYPE_LABELS: Record<string, string> = {
+  '60min_3pack': '60-Min 3-Pack',
+  '60min_6pack': '60-Min 6-Pack',
+  '90min_3pack': '90-Min 3-Pack',
+  '90min_6pack': '90-Min 6-Pack',
+}
+
 const STATUS_LABELS: Record<string, string> = {
   scheduled:  'Scheduled',
   checked_in: 'Checked In',
@@ -72,6 +107,13 @@ export default function AppointmentModal({
   const [editingPayment, setEditingPayment] = useState(false)
   const [savingPayment, setSavingPayment] = useState(false)
 
+  // Package state
+  const [activePackage, setActivePackage] = useState<ActivePackage | null>(null)
+  const [pkgChecked, setPkgChecked] = useState(false)
+  const [payMode, setPayMode] = useState<'standard' | 'buy' | 'use_pkg'>('standard')
+  const [selectedPlan, setSelectedPlan] = useState<PackagePlan | null>(null)
+  const [savingPkg, setSavingPkg] = useState(false)
+
   // Close service picker on outside click
   useEffect(() => {
     if (!serviceOpen) return
@@ -90,6 +132,39 @@ export default function AppointmentModal({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // Load active package once on mount
+  useEffect(() => {
+    async function fetchPackage() {
+      if (
+        appt.status !== 'completed' ||
+        !appt.client_id ||
+        (appt.service_type !== '60min' && appt.service_type !== '90min')
+      ) {
+        setPkgChecked(true)
+        return
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const supabase = createClient() as any
+      const { data } = await supabase
+        .from('crm_packages')
+        .select('id, package_type, total_sessions, sessions_used, sessions_remaining, purchased_at')
+        .eq('client_id', appt.client_id)
+        .like('package_type', `${appt.service_type}%`)
+        .gt('sessions_remaining', 0)
+        .order('purchased_at', { ascending: false })
+        .limit(1)
+        .single()
+      const pkg = data as ActivePackage | null
+      setActivePackage(pkg)
+      if (pkg && appt.amount_paid == null) {
+        setPayMode('use_pkg')
+      }
+      setPkgChecked(true)
+    }
+    fetchPackage()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function updateStatus(newStatus: string) {
     setSavingStatus(newStatus)
@@ -151,6 +226,77 @@ export default function AppointmentModal({
     setSavingPayment(false)
   }
 
+  async function buyPackage() {
+    if (!selectedPlan || savingPkg) return
+    setSavingPkg(true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any
+    await supabase
+      .from('crm_packages')
+      .insert({
+        client_id: appt.client_id,
+        package_type: selectedPlan.type,
+        total_sessions: selectedPlan.sessions,
+        sessions_used: 1,
+        sessions_remaining: selectedPlan.sessions - 1,
+        amount_paid: selectedPlan.price,
+        purchase_appointment_id: appt.id,
+      })
+    await supabase
+      .from('crm_appointments')
+      .update({
+        amount_paid: selectedPlan.price,
+        payment_method: 'Package',
+        paid_at: new Date().toISOString(),
+      } as never)
+      .eq('id', appt.id)
+    const { data: refreshedPkg } = await supabase
+      .from('crm_packages')
+      .select('id, package_type, total_sessions, sessions_used, sessions_remaining, purchased_at')
+      .eq('client_id', appt.client_id)
+      .like('package_type', `${appt.service_type}%`)
+      .gt('sessions_remaining', 0)
+      .order('purchased_at', { ascending: false })
+      .limit(1)
+      .single()
+    setAmountPaid(selectedPlan.price)
+    setPaymentMethod('Package')
+    setActivePackage((refreshedPkg as ActivePackage) ?? null)
+    setEditingPayment(false)
+    onUpdate({ ...appt, service_type: serviceType, status, notes, amount_paid: selectedPlan.price, payment_method: 'Package' })
+    setSavingPkg(false)
+  }
+
+  async function usePackageSession() {
+    if (!activePackage) return
+    setSavingPkg(true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any
+    const { data: updatedPkg } = await supabase
+      .from('crm_packages')
+      .update({
+        sessions_used: activePackage.sessions_used + 1,
+        sessions_remaining: activePackage.sessions_remaining - 1,
+      })
+      .eq('id', activePackage.id)
+      .select('id, package_type, total_sessions, sessions_used, sessions_remaining, purchased_at')
+      .single()
+    await supabase
+      .from('crm_appointments')
+      .update({
+        amount_paid: 0,
+        payment_method: 'Package',
+        paid_at: new Date().toISOString(),
+      } as never)
+      .eq('id', appt.id)
+    setAmountPaid(0)
+    setPaymentMethod('Package')
+    setActivePackage(updatedPkg as ActivePackage | null)
+    setEditingPayment(false)
+    onUpdate({ ...appt, service_type: serviceType, status, notes, amount_paid: 0, payment_method: 'Package' })
+    setSavingPkg(false)
+  }
+
   function handleNotesChange(value: string) {
     setNotes(value)
     if (notesTimer.current) clearTimeout(notesTimer.current)
@@ -177,7 +323,7 @@ export default function AppointmentModal({
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto overflow-y-auto max-h-[90vh]"
           onClick={e => e.stopPropagation()}
         >
           {/* Color header strip — service type */}
@@ -320,64 +466,207 @@ export default function AppointmentModal({
                   <label className="text-xs font-semibold uppercase tracking-widest text-gray-400">
                     Payment
                   </label>
+                  {/* Paid badge */}
                   {amountPaid != null && !editingPayment && (
-                    <span className="flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
-                      <Check size={11} />
-                      Paid · ${amountPaid.toFixed(2)} · {paymentMethod}
-                    </span>
+                    paymentMethod === 'Package' ? (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1"
+                        style={{ backgroundColor: '#47A1A010', color: '#47A1A0', border: '1px solid #47A1A040' }}>
+                        <Check size={11} />
+                        Package Active{activePackage ? ` · ${activePackage.sessions_remaining} left` : ''}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
+                        <Check size={11} />
+                        Paid · ${amountPaid.toFixed(2)} · {paymentMethod}
+                      </span>
+                    )
                   )}
                 </div>
 
-                {(amountPaid == null || editingPayment) ? (
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">Amount ($)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={amountInput}
-                          onChange={e => setAmountInput(e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">Method</label>
-                        <select
-                          value={paymentMethod}
-                          onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white"
-                        >
-                          {PAYMENT_METHODS.map(m => (
-                            <option key={m} value={m}>{m}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={savePayment}
-                        disabled={savingPayment}
-                        className="flex-1 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50 transition-opacity"
-                        style={{ backgroundColor: '#47A1A0' }}
-                      >
-                        {savingPayment ? 'Saving…' : 'Save Payment'}
-                      </button>
-                      {editingPayment && (
+                {(amountPaid == null || editingPayment) && (
+                  <>
+                    {/* Mode tabs — shown when packages are available */}
+                    {pkgChecked && (activePackage || PACKAGE_OPTIONS[serviceType]) && (
+                      <div className="flex border border-gray-200 rounded-lg overflow-hidden text-xs mb-3">
                         <button
-                          onClick={() => setEditingPayment(false)}
-                          className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors"
+                          onClick={() => setPayMode('standard')}
+                          className="flex-1 px-3 py-1.5 font-medium transition-colors"
+                          style={payMode === 'standard'
+                            ? { backgroundColor: '#1a2332', color: 'white' }
+                            : { backgroundColor: 'white', color: '#6b7280' }}
                         >
-                          Cancel
+                          Pay Now
                         </button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
+                        {activePackage && (
+                          <button
+                            onClick={() => setPayMode('use_pkg')}
+                            className="flex-1 px-3 py-1.5 font-medium transition-colors border-l border-gray-200"
+                            style={payMode === 'use_pkg'
+                              ? { backgroundColor: '#47A1A0', color: 'white' }
+                              : { backgroundColor: 'white', color: '#6b7280' }}
+                          >
+                            Use Package
+                          </button>
+                        )}
+                        {PACKAGE_OPTIONS[serviceType] && (
+                          <button
+                            onClick={() => setPayMode('buy')}
+                            className="flex-1 px-3 py-1.5 font-medium transition-colors border-l border-gray-200"
+                            style={payMode === 'buy'
+                              ? { backgroundColor: '#FEB74B', color: '#1a2332' }
+                              : { backgroundColor: 'white', color: '#6b7280' }}
+                          >
+                            Buy Package
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Standard payment form */}
+                    {payMode === 'standard' && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                        <div className="flex gap-3">
+                          <div className="flex-1">
+                            <label className="block text-xs text-gray-500 mb-1">Amount ($)</label>
+                            <input
+                              type="number" min="0" step="0.01"
+                              value={amountInput}
+                              onChange={e => setAmountInput(e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-xs text-gray-500 mb-1">Method</label>
+                            <select
+                              value={paymentMethod}
+                              onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white"
+                            >
+                              {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={savePayment}
+                            disabled={savingPayment}
+                            className="flex-1 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50 transition-opacity"
+                            style={{ backgroundColor: '#47A1A0' }}
+                          >
+                            {savingPayment ? 'Saving…' : 'Save Payment'}
+                          </button>
+                          {editingPayment && (
+                            <button
+                              onClick={() => setEditingPayment(false)}
+                              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-100 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Use package session */}
+                    {payMode === 'use_pkg' && activePackage && (
+                      <div className="rounded-xl p-4 space-y-3"
+                        style={{ backgroundColor: '#47A1A010', border: '1px solid #47A1A040' }}>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: '#1a2332' }}>
+                              {PKG_TYPE_LABELS[activePackage.package_type] ?? activePackage.package_type}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {activePackage.sessions_remaining} of {activePackage.total_sessions} sessions remaining
+                            </p>
+                          </div>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: '#47A1A020', color: '#47A1A0' }}>
+                            Active
+                          </span>
+                        </div>
+                        {/* Session dots */}
+                        <div className="flex gap-1.5">
+                          {Array.from({ length: activePackage.total_sessions }, (_, i) => (
+                            <div key={i} className="w-4 h-4 rounded-full border-2"
+                              style={i < activePackage.sessions_used
+                                ? { backgroundColor: '#47A1A0', borderColor: '#47A1A0' }
+                                : { backgroundColor: 'transparent', borderColor: '#47A1A060' }} />
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={usePackageSession}
+                            disabled={savingPkg}
+                            className="flex-1 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-40 transition-opacity"
+                            style={{ backgroundColor: '#47A1A0' }}
+                          >
+                            {savingPkg ? 'Saving…' : 'Use Package Session'}
+                          </button>
+                          {editingPayment && (
+                            <button
+                              onClick={() => setEditingPayment(false)}
+                              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Buy package */}
+                    {payMode === 'buy' && PACKAGE_OPTIONS[serviceType] && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                        <div className="space-y-2">
+                          {PACKAGE_OPTIONS[serviceType].map(plan => (
+                            <button
+                              key={plan.type}
+                              onClick={() => setSelectedPlan(plan)}
+                              className="w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left"
+                              style={selectedPlan?.type === plan.type
+                                ? { borderColor: '#47A1A0', backgroundColor: '#47A1A008' }
+                                : { borderColor: '#e5e7eb', backgroundColor: 'white' }}
+                            >
+                              <div>
+                                <p className="text-sm font-semibold" style={{ color: '#1a2332' }}>{plan.label}</p>
+                                <p className="text-xs text-gray-400">{plan.sublabel}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold" style={{ color: '#47A1A0' }}>${plan.price}</span>
+                                {selectedPlan?.type === plan.type && <Check size={14} style={{ color: '#47A1A0' }} />}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={buyPackage}
+                            disabled={!selectedPlan || savingPkg}
+                            className="flex-1 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-40 transition-opacity"
+                            style={{ backgroundColor: '#1a2332' }}
+                          >
+                            {savingPkg ? 'Saving…' : selectedPlan ? `Purchase · $${selectedPlan.price}` : 'Select a Package'}
+                          </button>
+                          {editingPayment && (
+                            <button
+                              onClick={() => setEditingPayment(false)}
+                              className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-500 hover:bg-gray-100"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Edit payment link */}
+                {amountPaid != null && !editingPayment && (
                   <button
                     onClick={() => setEditingPayment(true)}
-                    className="w-full text-left text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
+                    className="w-full text-left text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors mt-1"
                   >
                     Edit payment
                   </button>

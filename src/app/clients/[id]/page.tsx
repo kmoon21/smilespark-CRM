@@ -35,6 +35,22 @@ interface Photo {
   appointment_id: string | null
 }
 
+interface Package {
+  id: string
+  package_type: string
+  total_sessions: number
+  sessions_used: number
+  sessions_remaining: number
+  purchased_at: string
+}
+
+const PKG_TYPE_LABELS: Record<string, string> = {
+  '60min_3pack': '60-Min 3-Pack',
+  '60min_6pack': '60-Min 6-Pack',
+  '90min_3pack': '90-Min 3-Pack',
+  '90min_6pack': '90-Min 6-Pack',
+}
+
 const statusColors: Record<string, string> = {
   scheduled: 'bg-yellow-100 text-yellow-700',
   checked_in: 'bg-blue-100 text-blue-700',
@@ -53,6 +69,8 @@ export default function ClientDetailPage() {
   const [savedNotes, setSavedNotes] = useState(false)
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [packages, setPackages] = useState<Package[]>([])
+  const [usingSession, setUsingSession] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -77,12 +95,21 @@ export default function ClientDetailPage() {
         .eq('client_id', id)
         .order('taken_at', { ascending: false })
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pkgData } = await (supabase as any)
+        .from('crm_packages')
+        .select('*')
+        .eq('client_id', id)
+        .gt('sessions_remaining', 0)
+        .order('purchased_at', { ascending: false })
+
       if (clientData) {
         setClient(clientData as Client)
         setNotes((clientData as Client).notes ?? '')
       }
       setAppointments((apptData as Appointment[]) ?? [])
       setPhotos((photoData as Photo[]) ?? [])
+      setPackages((pkgData as Package[]) ?? [])
       setLoading(false)
     }
     load()
@@ -95,6 +122,27 @@ export default function ClientDetailPage() {
     await (supabase as any).from('crm_clients').update({ notes }).eq('id', id)
     setSavedNotes(true)
     setTimeout(() => setSavedNotes(false), 2000)
+  }
+
+  async function applySession(pkg: Package) {
+    setUsingSession(pkg.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from('crm_packages')
+      .update({
+        sessions_used: pkg.sessions_used + 1,
+        sessions_remaining: pkg.sessions_remaining - 1,
+      })
+      .eq('id', pkg.id)
+    setPackages(prev =>
+      prev
+        .map(p => p.id === pkg.id
+          ? { ...p, sessions_used: p.sessions_used + 1, sessions_remaining: p.sessions_remaining - 1 }
+          : p
+        )
+        .filter(p => p.sessions_remaining > 0)
+    )
+    setUsingSession(null)
   }
 
   function copyReferralCode() {
@@ -185,6 +233,61 @@ export default function ClientDetailPage() {
           </table>
         )}
       </section>
+
+      {/* Active Packages */}
+      {packages.length > 0 && (
+        <section className="bg-white rounded-xl shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Active Package</h2>
+          <div className="space-y-4">
+            {packages.map(pkg => (
+              <div key={pkg.id} className="rounded-xl p-4"
+                style={{ backgroundColor: '#47A1A010', border: '1px solid #47A1A040' }}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-semibold text-gray-900">
+                      {PKG_TYPE_LABELS[pkg.package_type] ?? pkg.package_type}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      Purchased {format(new Date(pkg.purchased_at), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold" style={{ color: '#47A1A0' }}>
+                    {pkg.sessions_remaining} left
+                  </span>
+                </div>
+                {/* Session dot tracker */}
+                <div className="flex gap-1.5 mb-3">
+                  {Array.from({ length: pkg.total_sessions }, (_, i) => (
+                    <div key={i} className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                      style={i < pkg.sessions_used
+                        ? { backgroundColor: '#47A1A0', borderColor: '#47A1A0' }
+                        : { backgroundColor: 'transparent', borderColor: '#47A1A060' }}>
+                      {i < pkg.sessions_used && (
+                        <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                          <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    {pkg.sessions_used} of {pkg.total_sessions} sessions used
+                  </p>
+                  <button
+                    onClick={() => applySession(pkg)}
+                    disabled={usingSession === pkg.id}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white disabled:opacity-40 transition-opacity"
+                    style={{ backgroundColor: '#47A1A0' }}
+                  >
+                    {usingSession === pkg.id ? 'Saving…' : 'Use Session'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Photos</h2>
