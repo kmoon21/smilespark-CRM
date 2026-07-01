@@ -35,9 +35,16 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 flex-shrink-0 flex flex-col h-screen fixed left-0 top-0" style={{ backgroundColor: '#1a2332' }}>
-      <div className="px-6 py-6 border-b border-white/10">
-        <span className="text-2xl font-bold" style={{ color: '#47A1A0' }}>SmileSpark</span>
-        <span className="text-2xl font-bold ml-1" style={{ color: '#FEB74B' }}>CRM</span>
+      <div className="px-5 py-5 border-b border-white/10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/TRANSPRNCY HI RES 1.png"
+          alt="SmileSpark"
+          style={{ width: 160, height: 'auto' }}
+        />
+        <span className="block text-xs font-bold tracking-widest uppercase mt-1 pl-0.5" style={{ color: '#FEB74B' }}>
+          CRM
+        </span>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
