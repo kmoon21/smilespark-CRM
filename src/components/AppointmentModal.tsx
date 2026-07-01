@@ -19,8 +19,8 @@ const DEFAULT_PRICES: Record<string, number> = {
   family_friends:   99,
 }
 
-const PAYMENT_METHODS = ['Cash', 'Card', 'Square', 'Comp', 'Package'] as const
-type PaymentMethod = typeof PAYMENT_METHODS[number]
+const PAYMENT_METHODS = ['Cash', 'Card', 'Square', 'Comp'] as const
+type PaymentMethod = typeof PAYMENT_METHODS[number] | 'Package'
 
 interface ActivePackage {
   id: string
