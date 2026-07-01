@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { addDays, format, isToday } from 'date-fns'
 import { SERVICE_DURATION_MINUTES } from '@/lib/capacity'
+import { getServiceColors, getStatusBorder } from '@/lib/service-colors'
 import {
   parseUTC,
   topPx,
@@ -17,13 +18,6 @@ import {
 } from '@/lib/time'
 import type { AppointmentFull } from './DayView'
 
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  scheduled:  { bg: '#47A1A0', text: 'white' },
-  checked_in: { bg: '#3b82f6', text: 'white' },
-  completed:  { bg: '#22c55e', text: 'white' },
-  no_show:    { bg: '#9ca3af', text: 'white' },
-  cancelled:  { bg: '#e5e7eb', text: '#6b7280' },
-}
 
 /** True if a UTC appointment falls on a given calendar day in local time. */
 function isLocalDay(scheduledAt: string, day: Date): boolean {
@@ -175,7 +169,8 @@ export default function WeekView({
 
                 {/* Appointment blocks */}
                 {dayAppts.map(appt => {
-                  const style = STATUS_STYLES[appt.status] ?? STATUS_STYLES.scheduled
+                  const { bg, text } = getServiceColors(appt.service_type)
+                  const borderColor = getStatusBorder(appt.status)
                   const top = topPx(appt.scheduled_at)
                   const height = heightPx(appt.service_type, SERVICE_DURATION_MINUTES)
                   const name = appt.crm_clients
@@ -187,7 +182,7 @@ export default function WeekView({
                       key={appt.id}
                       href={`/appointments/${appt.id}`}
                       className="absolute left-0.5 right-0.5 rounded overflow-hidden hover:brightness-95 transition-all shadow-sm"
-                      style={{ top, height, backgroundColor: style.bg, color: style.text }}
+                      style={{ top, height, backgroundColor: bg, color: text, borderLeft: `3px solid ${borderColor}` }}
                     >
                       <div className="px-1.5 py-1 h-full flex flex-col overflow-hidden">
                         <p className="text-xs font-bold leading-tight truncate" style={{ fontSize: '10px' }}>

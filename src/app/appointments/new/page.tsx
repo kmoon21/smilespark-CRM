@@ -3,11 +3,20 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { ArrowLeft, Check, Search, X } from 'lucide-react'
+import { ArrowLeft, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import { findAvailableChair } from '@/lib/capacity'
+import { SERVICE_COLORS, SERVICE_LABELS, type ServiceType } from '@/lib/service-colors'
 
 type Client = { id: string; first_name: string; last_name: string; phone: string | null }
+
+const SERVICE_OPTIONS: { type: ServiceType; desc: string }[] = [
+  { type: '30min',          desc: '30-minute session' },
+  { type: '60min',          desc: '60-minute session' },
+  { type: '90min',          desc: '90-minute session' },
+  { type: 'brand_ambassador', desc: 'Complimentary — brand ambassador' },
+  { type: 'family_friends', desc: 'Discounted — family & friends' },
+]
 
 // 9:00 AM – 7:30 PM in 30-min increments
 const TIME_OPTIONS: { label: string; value: string }[] = []
@@ -37,7 +46,7 @@ export default function NewAppointmentPage() {
   // Appointment fields
   const [date, setDate] = useState(todayStr)
   const [time, setTime] = useState('09:00')
-  const [serviceType, setServiceType] = useState<'30min' | '60min' | '90min'>('60min')
+  const [serviceType, setServiceType] = useState<ServiceType>('60min')
   const [notes, setNotes] = useState('')
 
   // Submit state
@@ -230,23 +239,33 @@ export default function NewAppointmentPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Service <span className="text-red-400">*</span>
               </label>
-              <div className="flex gap-3">
-                {(['30min', '60min', '90min'] as const).map(type => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setServiceType(type)}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 font-medium text-sm transition-all"
-                    style={{
-                      borderColor: serviceType === type ? '#47A1A0' : '#e5e7eb',
-                      backgroundColor: serviceType === type ? '#f0fafa' : 'white',
-                      color: serviceType === type ? '#1a2332' : '#6b7280',
-                    }}
-                  >
-                    {serviceType === type && <Check size={14} />}
-                    {type}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {SERVICE_OPTIONS.map(({ type, desc }) => {
+                  const selected = serviceType === type
+                  const { bg, text } = SERVICE_COLORS[type]
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setServiceType(type)}
+                      className="flex items-start gap-2 px-3 py-2.5 rounded-xl border-2 font-medium text-sm transition-all text-left"
+                      style={{
+                        borderColor: selected ? bg : '#e5e7eb',
+                        backgroundColor: selected ? bg + '22' : 'white',
+                        color: selected ? text : '#6b7280',
+                      }}
+                    >
+                      <div
+                        className="mt-0.5 w-3 h-3 rounded-sm flex-shrink-0"
+                        style={{ backgroundColor: selected ? bg : '#e5e7eb' }}
+                      />
+                      <div>
+                        <p className="font-semibold leading-none">{SERVICE_LABELS[type]}</p>
+                        <p className="text-xs mt-0.5 font-normal opacity-70">{desc}</p>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 

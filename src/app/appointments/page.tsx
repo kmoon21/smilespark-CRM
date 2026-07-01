@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase-browser'
 import Sidebar from '@/components/Sidebar'
 import DayView, { type AppointmentFull } from '@/components/DayView'
 import WeekView from '@/components/WeekView'
+import { SERVICE_COLORS, SERVICE_LABELS, STATUS_BORDER, type ServiceType } from '@/lib/service-colors'
 
 type View = 'day' | 'week'
 
@@ -123,22 +124,22 @@ export default function AppointmentsPage() {
           </div>
         </div>
 
-        {/* Status legend */}
-        <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-5">
-          {[
-            { label: 'Scheduled', color: '#47A1A0' },
-            { label: 'Checked In', color: '#3b82f6' },
-            { label: 'Completed', color: '#22c55e' },
-            { label: 'No Show', color: '#9ca3af' },
-          ].map(({ label, color }) => (
-            <div key={label} className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-xs text-gray-500">{label}</span>
+        {/* Legend */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-x-5 gap-y-1 flex-wrap">
+          {(Object.keys(SERVICE_COLORS) as ServiceType[]).map(type => (
+            <div key={type} className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: SERVICE_COLORS[type].bg }} />
+              <span className="text-xs text-gray-500">{SERVICE_LABELS[type]}</span>
             </div>
           ))}
-          {loading && (
-            <span className="ml-auto text-xs text-gray-400">Loading…</span>
-          )}
+          <div className="w-px h-3 bg-gray-200 mx-1" />
+          {Object.entries(STATUS_BORDER).map(([status, color]) => (
+            <div key={status} className="flex items-center gap-1.5">
+              <div className="w-0.5 h-3 rounded-full" style={{ backgroundColor: color }} />
+              <span className="text-xs text-gray-400">{status.replace('_', ' ')}</span>
+            </div>
+          ))}
+          {loading && <span className="ml-auto text-xs text-gray-400">Loading…</span>}
         </div>
 
         {/* Calendar body */}

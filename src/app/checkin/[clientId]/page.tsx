@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 import { findAvailableChair } from '@/lib/capacity'
+import { SERVICE_COLORS, SERVICE_LABELS, type ServiceType } from '@/lib/service-colors'
 import { Check, ChevronLeft, ChevronRight, Camera, RotateCcw, X } from 'lucide-react'
 
 type Client = {
@@ -57,7 +58,7 @@ export default function CheckInWizard() {
   const [error, setError] = useState<string | null>(null)
 
   // Step 1 — Service
-  const [serviceType, setServiceType] = useState<'30min' | '60min' | '90min'>('60min')
+  const [serviceType, setServiceType] = useState<ServiceType>('60min')
   const [apptNotes, setApptNotes] = useState('')
 
   // Step 2 — Consent
@@ -300,38 +301,47 @@ export default function CheckInWizard() {
             <h2 className="text-3xl font-bold mb-1" style={{ color: '#1a2332' }}>Select Service</h2>
             <p className="text-gray-400 mb-8">Choose the treatment duration for today&apos;s visit</p>
 
-            <div className="space-y-4 mb-8">
+            <div className="space-y-3 mb-8">
               {([
-                { type: '30min', label: 'Express', desc: '30-minute whitening session' },
-                { type: '60min', label: 'Standard', desc: '60-minute whitening session' },
-                { type: '90min', label: 'Premium', desc: '90-minute whitening session' },
-              ] as const).map(({ type, label, desc }) => (
-                <button
-                  key={type}
-                  onClick={() => setServiceType(type)}
-                  className="w-full flex items-center justify-between px-6 py-5 rounded-2xl border-2 transition-all text-left active:scale-[0.99]"
-                  style={{
-                    borderColor: serviceType === type ? '#47A1A0' : '#e5e7eb',
-                    backgroundColor: serviceType === type ? '#f0fafa' : 'white',
-                  }}
-                >
-                  <div>
-                    <p className="text-xl font-bold" style={{ color: '#1a2332' }}>
-                      {label} <span className="font-normal text-gray-400 text-base ml-1">· {type}</span>
-                    </p>
-                    <p className="text-gray-400 text-sm mt-0.5">{desc}</p>
-                  </div>
-                  <div
-                    className="w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                { type: '30min' as ServiceType,          desc: '30-minute whitening session' },
+                { type: '60min' as ServiceType,          desc: '60-minute whitening session' },
+                { type: '90min' as ServiceType,          desc: '90-minute whitening session' },
+                { type: 'brand_ambassador' as ServiceType, desc: 'Complimentary — brand ambassador' },
+                { type: 'family_friends' as ServiceType,  desc: 'Discounted — family & friends' },
+              ]).map(({ type, desc }) => {
+                const selected = serviceType === type
+                const { bg, text } = SERVICE_COLORS[type]
+                return (
+                  <button
+                    key={type}
+                    onClick={() => setServiceType(type)}
+                    className="w-full flex items-center justify-between px-6 py-4 rounded-2xl border-2 transition-all text-left active:scale-[0.99]"
                     style={{
-                      borderColor: serviceType === type ? '#47A1A0' : '#e5e7eb',
-                      backgroundColor: serviceType === type ? '#47A1A0' : 'transparent',
+                      borderColor: selected ? bg : '#e5e7eb',
+                      backgroundColor: selected ? bg + '22' : 'white',
                     }}
                   >
-                    {serviceType === type && <Check size={16} className="text-white" />}
-                  </div>
-                </button>
-              ))}
+                    <div className="flex items-center gap-4">
+                      <div className="w-4 h-4 rounded-sm flex-shrink-0" style={{ backgroundColor: bg }} />
+                      <div>
+                        <p className="text-lg font-bold" style={{ color: selected ? text : '#1a2332' }}>
+                          {SERVICE_LABELS[type]}
+                        </p>
+                        <p className="text-gray-400 text-sm mt-0.5">{desc}</p>
+                      </div>
+                    </div>
+                    <div
+                      className="w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
+                      style={{
+                        borderColor: selected ? bg : '#e5e7eb',
+                        backgroundColor: selected ? bg : 'transparent',
+                      }}
+                    >
+                      {selected && <Check size={16} style={{ color: text }} />}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
 
             <div className="mb-8">

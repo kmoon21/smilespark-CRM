@@ -3,9 +3,11 @@ import { createClient } from '@/lib/supabase-browser'
 type SupabaseClient = ReturnType<typeof createClient>
 
 export const SERVICE_DURATION_MINUTES: Record<string, number> = {
-  '30min': 30,
-  '60min': 60,
-  '90min': 90,
+  '30min':          30,
+  '60min':          60,
+  '90min':          90,
+  brand_ambassador: 60,
+  family_friends:   60,
 }
 
 /**

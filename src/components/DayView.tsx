@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { isToday } from 'date-fns'
 import { SERVICE_DURATION_MINUTES } from '@/lib/capacity'
+import { getServiceColors, getStatusBorder } from '@/lib/service-colors'
 import {
   parseUTC,
   topPx,
@@ -16,13 +17,6 @@ import {
   GRID_LINES,
 } from '@/lib/time'
 
-const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
-  scheduled:  { bg: '#47A1A0', text: 'white' },
-  checked_in: { bg: '#3b82f6', text: 'white' },
-  completed:  { bg: '#22c55e', text: 'white' },
-  no_show:    { bg: '#9ca3af', text: 'white' },
-  cancelled:  { bg: '#e5e7eb', text: '#6b7280' },
-}
 
 export type AppointmentFull = {
   id: string
@@ -71,7 +65,8 @@ function computeLayout(appts: AppointmentFull[]): LayoutAppt[] {
 const GAP = 3
 
 function ApptBlock({ appt }: { appt: LayoutAppt }) {
-  const style = STATUS_STYLES[appt.status] ?? STATUS_STYLES.scheduled
+  const { bg, text } = getServiceColors(appt.service_type)
+  const borderColor = getStatusBorder(appt.status)
   const top = topPx(appt.scheduled_at)
   const height = heightPx(appt.service_type, SERVICE_DURATION_MINUTES)
   const name = appt.crm_clients
@@ -92,12 +87,16 @@ function ApptBlock({ appt }: { appt: LayoutAppt }) {
     <Link
       href={`/appointments/${appt.id}`}
       className="absolute rounded-lg overflow-hidden hover:brightness-95 transition-all shadow-sm"
-      style={{ top, height, left: leftCalc, right: rightCalc, backgroundColor: style.bg, color: style.text }}
+      style={{
+        top, height, left: leftCalc, right: rightCalc,
+        backgroundColor: bg, color: text,
+        borderLeft: `3px solid ${borderColor}`,
+      }}
     >
       <div className="px-2 py-1.5 h-full flex flex-col overflow-hidden">
         <p className="text-xs font-bold leading-tight truncate">{name}</p>
         {height >= 96 && (
-          <p className="text-xs opacity-80 mt-0.5">{appt.service_type}</p>
+          <p className="text-xs opacity-80 mt-0.5">{appt.service_type.replace('_', ' ')}</p>
         )}
         {height >= 96 && (
           <p className="text-xs opacity-70 mt-0.5">{formatLocalTime(appt.scheduled_at)}</p>
