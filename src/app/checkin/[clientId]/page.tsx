@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase-browser'
 import { findAvailableChair } from '@/lib/capacity'
 import { SERVICE_COLORS, SERVICE_LABELS, type ServiceType } from '@/lib/service-colors'
 import { Check, ChevronLeft, ChevronRight, Camera, RotateCcw, X } from 'lucide-react'
+import Sidebar from '@/components/Sidebar'
 
 type Client = {
   id: string
@@ -241,22 +242,30 @@ export default function CheckInWizard() {
 
   if (pageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400 text-xl">Loading…</p>
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 ml-64 flex items-center justify-center">
+          <p className="text-gray-400 text-xl">Loading…</p>
+        </main>
       </div>
     )
   }
 
   if (!client) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-red-500 text-xl">Client not found.</p>
+      <div className="flex h-screen bg-gray-50 overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 ml-64 flex items-center justify-center">
+          <p className="text-red-500 text-xl">Client not found.</p>
+        </main>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 ml-64 flex flex-col overflow-hidden">
       {/* Sticky header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
         <button
@@ -293,6 +302,7 @@ export default function CheckInWizard() {
         </div>
       </div>
 
+      <div className="flex-1 overflow-y-auto">
       <div className="max-w-2xl mx-auto px-6 py-10">
 
         {/* ── STEP 1: Service ── */}
@@ -595,6 +605,8 @@ export default function CheckInWizard() {
           </div>
         )}
       </div>
+      </div>
+      </main>
     </div>
   )
 }

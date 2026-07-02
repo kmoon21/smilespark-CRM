@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
-import { Search, UserPlus, ChevronRight, ArrowLeft } from 'lucide-react'
+import { Search, UserPlus, ChevronRight } from 'lucide-react'
+import Sidebar from '@/components/Sidebar'
 
 type Client = {
   id: string
@@ -38,16 +39,10 @@ export default function CheckInSearchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-start pt-16 px-6">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 ml-64 overflow-y-auto flex flex-col items-center justify-start pt-16 px-6">
       <div className="w-full max-w-2xl">
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="flex items-center gap-1 text-gray-400 hover:text-gray-700 transition-colors mb-10 text-sm"
-        >
-          <ArrowLeft size={16} />
-          Back to Dashboard
-        </button>
-
         <h1 className="text-4xl font-bold text-center mb-2" style={{ color: '#1a2332' }}>
           Client Check-In
         </h1>
@@ -123,6 +118,7 @@ export default function CheckInSearchPage() {
           </div>
         )}
       </div>
+      </main>
     </div>
   )
 }

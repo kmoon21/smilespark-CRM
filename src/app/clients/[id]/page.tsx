@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase-browser'
-import { Copy, Check, CalendarDays } from 'lucide-react'
+import { Copy, Check, CalendarDays, ChevronLeft } from 'lucide-react'
 import RebookModal from '@/components/RebookModal'
+import Sidebar from '@/components/Sidebar'
 
 interface Client {
   id: string
@@ -171,11 +173,28 @@ export default function ClientDetailPage() {
     return acc
   }, {})
 
-  if (loading) return <div className="p-8 text-gray-400">Loading&#8230;</div>
-  if (!client) return <div className="p-8 text-red-500">Client not found.</div>
+  if (loading) return (
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 ml-64 overflow-y-auto p-8 text-gray-400">Loading&#8230;</main>
+    </div>
+  )
+  if (!client) return (
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 ml-64 overflow-y-auto p-8 text-red-500">Client not found.</main>
+    </div>
+  )
 
   return (
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 ml-64 overflow-y-auto">
     <div className="p-8 max-w-4xl">
+      <Link href="/clients" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-700 transition-colors mb-6">
+        <ChevronLeft size={15} />
+        Clients
+      </Link>
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -409,6 +428,8 @@ export default function ClientDetailPage() {
           className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
         />
       </section>
+    </div>
+      </main>
     </div>
   )
 }

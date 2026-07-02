@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase-browser'
 import { Search } from 'lucide-react'
+import Sidebar from '@/components/Sidebar'
 
 interface Client {
   id: string
@@ -44,6 +45,9 @@ export default function ClientsPage() {
   })
 
   return (
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 ml-64 overflow-y-auto">
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
@@ -113,6 +117,8 @@ export default function ClientsPage() {
           </table>
         )}
       </div>
+    </div>
+      </main>
     </div>
   )
 }

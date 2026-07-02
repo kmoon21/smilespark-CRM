@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-browser'
+import Sidebar from '@/components/Sidebar'
+import { ChevronLeft } from 'lucide-react'
 
 function generateReferralCode(lastName: string): string {
   const prefix = lastName.replace(/\s/g, '').slice(0, 4).toUpperCase().padEnd(4, 'X')
@@ -128,7 +130,14 @@ export default function NewClientPage() {
   }
 
   return (
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 ml-64 overflow-y-auto">
     <div className="p-8 max-w-2xl">
+      <Link href="/clients" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-700 transition-colors mb-6">
+        <ChevronLeft size={15} />
+        Clients
+      </Link>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">New Client</h1>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-6 space-y-5">
@@ -246,6 +255,8 @@ export default function NewClientPage() {
           </Link>
         </div>
       </form>
+    </div>
+      </main>
     </div>
   )
 }
