@@ -30,29 +30,32 @@ type DateRangeKey = typeof DATE_RANGES[number]['value']
 
 function getDateBounds(range: DateRangeKey): { from: string | null; to: string | null } {
   const now = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const y = now.getFullYear()
+  const m = now.getMonth() // 0-indexed
+
+  // Returns UTC ISO strings: from = start of first day, to = end of last day
+  const startOf = (year: number, month: number, day: number) =>
+    new Date(Date.UTC(year, month, day, 0, 0, 0, 0)).toISOString()
+  const endOf = (year: number, month: number, day: number) =>
+    new Date(Date.UTC(year, month, day, 23, 59, 59, 999)).toISOString()
 
   if (range === 'all_time') return { from: null, to: null }
 
   if (range === 'this_month') {
-    const from = new Date(now.getFullYear(), now.getMonth(), 1)
-    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    return { from: fmt(from), to: fmt(to) }
+    const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+    return { from: startOf(y, m, 1), to: endOf(y, m, lastDay) }
   }
   if (range === 'last_month') {
-    const from = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const to = new Date(now.getFullYear(), now.getMonth(), 0)
-    return { from: fmt(from), to: fmt(to) }
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    return { from: startOf(y, m - 1, 1), to: endOf(y, m - 1, lastDay) }
   }
   if (range === 'last_3_months') {
-    const from = new Date(now.getFullYear(), now.getMonth() - 2, 1)
-    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    return { from: fmt(from), to: fmt(to) }
+    // Cover the 1st of two months ago through the last day of the current month
+    const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+    return { from: startOf(y, m - 2, 1), to: endOf(y, m, lastDay) }
   }
   if (range === 'this_year') {
-    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` }
+    return { from: startOf(y, 0, 1), to: endOf(y, 11, 31) }
   }
   return { from: null, to: null }
 }
@@ -82,7 +85,7 @@ function RevenueTab({ studioId, from, to }: { studioId: string | null; from: str
       .eq('status', 'completed')
     if (studioId) q = q.eq('studio_id', studioId)
     if (from) q = q.gte('scheduled_at', from)
-    if (to) q = q.lte('scheduled_at', to + 'T23:59:59')
+    if (to) q = q.lte('scheduled_at', to)
     q.then(({ data }: { data: { service_type: string; amount_paid: number }[] | null }) => {
       const map: Record<string, RevenueRow> = {}
       for (const row of data ?? []) {
@@ -176,7 +179,7 @@ function AppointmentsTab({ studioId, from, to }: { studioId: string | null; from
       .select('status, scheduled_at')
     if (studioId) q = q.eq('studio_id', studioId)
     if (from) q = q.gte('scheduled_at', from)
-    if (to) q = q.lte('scheduled_at', to + 'T23:59:59')
+    if (to) q = q.lte('scheduled_at', to)
     q.then(({ data }: { data: { status: string; scheduled_at: string }[] | null }) => {
       const s: ApptStats = { completed: 0, noshow: 0, cancelled: 0, scheduled: 0, total: 0 }
       const dayMap: Record<string, number> = {}
@@ -257,13 +260,13 @@ function ClientsTab({ studioId, from, to }: { studioId: string | null; from: str
     let cq = db.from('crm_clients').select('id', { count: 'exact', head: true })
     if (studioId) cq = cq.eq('studio_id', studioId)
     if (from) cq = cq.gte('created_at', from)
-    if (to) cq = cq.lte('created_at', to + 'T23:59:59')
+    if (to) cq = cq.lte('created_at', to)
 
     // Appointments for top clients
     let aq = db.from('crm_appointments').select('client_id, amount_paid, crm_clients(first_name, last_name)').eq('status', 'completed')
     if (studioId) aq = aq.eq('studio_id', studioId)
     if (from) aq = aq.gte('scheduled_at', from)
-    if (to) aq = aq.lte('scheduled_at', to + 'T23:59:59')
+    if (to) aq = aq.lte('scheduled_at', to)
 
     Promise.all([cq, aq]).then(([{ count }, { data }]) => {
       setTotal(count ?? 0)
@@ -344,7 +347,7 @@ function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: s
     let q = db.from('crm_clients').select('referred_by_client_id, referral_credit, created_at')
     if (studioId) q = q.eq('studio_id', studioId)
     if (from) q = q.gte('created_at', from)
-    if (to) q = q.lte('created_at', to + 'T23:59:59')
+    if (to) q = q.lte('created_at', to)
     q.then(async ({ data }: { data: { referred_by_client_id: string | null; referral_credit: number }[] | null }) => {
       const referred = (data ?? []).filter(r => r.referred_by_client_id)
       setTotal(referred.length)
@@ -419,7 +422,7 @@ function PartnersTab({ studioId, from, to }: { studioId: string | null; from: st
     const db = createClient() as any // eslint-disable-line @typescript-eslint/no-explicit-any
     let q = db.from('crm_partner_referrals').select('partner_id, spif_amount, crm_partners(business_name)')
     if (from) q = q.gte('created_at', from)
-    if (to) q = q.lte('created_at', to + 'T23:59:59')
+    if (to) q = q.lte('created_at', to)
     q.then(async ({ data }: { data: { partner_id: string; spif_amount: number; crm_partners: { business_name: string } | null }[] | null }) => {
       const map: Record<string, { business_name: string; referrals: number; earned: number }> = {}
       for (const row of data ?? []) {
@@ -508,7 +511,7 @@ const PKG_TYPE_LABELS: Record<string, string> = {
   '90min_6pack': '90-Min 6-Pack',
 }
 
-function PackagesTab({ studioId }: { studioId: string | null }) {
+function PackagesTab({ studioId, from, to }: { studioId: string | null; from: string | null; to: string | null }) {
   const [rows, setRows] = useState<{
     package_type: string; sold: number; active: number; revenue: number
   }[]>([])
@@ -519,6 +522,8 @@ function PackagesTab({ studioId }: { studioId: string | null }) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let q = (createClient() as any).from('crm_packages').select('package_type, amount_paid, sessions_remaining')
     if (studioId) q = q.eq('studio_id', studioId)
+    if (from) q = q.gte('purchased_at', from)
+    if (to) q = q.lte('purchased_at', to)
     q.then(({ data }: { data: { package_type: string; amount_paid: number; sessions_remaining: number }[] | null }) => {
       const map: Record<string, { sold: number; active: number; revenue: number }> = {}
       for (const row of data ?? []) {
@@ -534,7 +539,7 @@ function PackagesTab({ studioId }: { studioId: string | null }) {
       setRows(sorted)
       setLoading(false)
     })
-  }, [studioId])
+  }, [studioId, from, to])
 
   if (loading) return <p className="text-gray-400 text-sm py-8 text-center">Loading…</p>
 
@@ -835,7 +840,7 @@ export default function ReportsPage() {
           {tab === 'clients' && <ClientsTab studioId={studio?.id ?? null} from={from} to={to} />}
           {tab === 'referrals' && <ReferralsTab studioId={studio?.id ?? null} from={from} to={to} />}
           {tab === 'partners' && <PartnersTab studioId={studio?.id ?? null} from={from} to={to} />}
-          {tab === 'packages' && <PackagesTab studioId={studio?.id ?? null} />}
+          {tab === 'packages' && <PackagesTab studioId={studio?.id ?? null} from={from} to={to} />}
           {tab === 'expenses' && <ExpensesTab studioId={studio?.id ?? null} from={from} to={to} />}
         </div>
       </main>
