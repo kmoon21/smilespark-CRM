@@ -154,7 +154,7 @@ export default function AppointmentModal({
         .gt('sessions_remaining', 0)
         .order('purchased_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
       const pkg = data as ActivePackage | null
       setActivePackage(pkg)
       if (pkg && appt.amount_paid == null) {
