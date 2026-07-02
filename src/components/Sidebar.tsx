@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, Calendar, Gift, Settings, LogOut, UserCheck, Building2 } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Gift, Settings, LogOut, UserCheck, Building2, BarChart2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
+import { useStudio } from '@/lib/studio-context'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -13,6 +14,7 @@ const navItems = [
   { label: 'Appointments', href: '/appointments', icon: Calendar },
   { label: 'Referrals', href: '/referrals', icon: Gift },
   { label: 'Partners', href: '/partners', icon: Building2 },
+  { label: 'Reports', href: '/reports', icon: BarChart2 },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -21,6 +23,7 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const { studio } = useStudio()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -46,6 +49,11 @@ export default function Sidebar() {
         <span className="block text-xs font-bold tracking-widest uppercase mt-1 pl-0.5" style={{ color: '#FEB74B' }}>
           CRM
         </span>
+        {studio && (
+          <p className="text-xs mt-1 pl-0.5 truncate" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            {studio.name}
+          </p>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
