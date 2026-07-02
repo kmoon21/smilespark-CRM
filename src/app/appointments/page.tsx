@@ -57,12 +57,18 @@ export default function AppointmentsPage() {
 
   // Fetch active package holders once on mount
   useEffect(() => {
-    createClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(createClient() as any)
       .from('crm_packages')
-      .select('client_id')
+      .select('client_id, sessions_remaining')
       .gt('sessions_remaining', 0)
-      .then(({ data }) => {
-        if (data) setPkgClientIds(new Set((data as { client_id: string }[]).map(r => r.client_id)))
+      .then(({ data, error }: { data: { client_id: string; sessions_remaining: number }[] | null; error: unknown }) => {
+        console.log('[packages] fetch result:', { data, error })
+        if (data) {
+          const ids = new Set(data.map(r => r.client_id))
+          console.log('[packages] active client_ids:', [...ids])
+          setPkgClientIds(ids)
+        }
       })
   }, [])
 

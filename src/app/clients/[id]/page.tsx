@@ -97,12 +97,13 @@ export default function ClientDetailPage() {
         .order('taken_at', { ascending: false })
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pkgData } = await (supabase as any)
+      const { data: pkgData, error: pkgError } = await (supabase as any)
         .from('crm_packages')
         .select('*')
         .eq('client_id', id)
         .gt('sessions_remaining', 0)
         .order('purchased_at', { ascending: false })
+      console.log('[client packages] id:', id, '| data:', pkgData, '| error:', pkgError)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { count: refCount } = await (supabase as any)
