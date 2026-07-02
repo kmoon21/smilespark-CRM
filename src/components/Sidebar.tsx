@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Users, Calendar, Gift, Settings, LogOut, UserCheck } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Gift, Settings, LogOut, UserCheck, Building2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Clients', href: '/clients', icon: Users },
   { label: 'Appointments', href: '/appointments', icon: Calendar },
   { label: 'Referrals', href: '/referrals', icon: Gift },
+  { label: 'Partners', href: '/partners', icon: Building2 },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 

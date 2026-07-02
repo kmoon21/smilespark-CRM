@@ -23,6 +23,7 @@ export default function NewClientPage() {
     notes: '',
   })
   const [referralCode, setReferralCode] = useState('')
+  const [inboundCode, setInboundCode] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -44,8 +45,34 @@ export default function NewClientPage() {
     setSaving(true)
     setError(null)
 
+    // Resolve inbound referral code — could be client or partner code
+    let referred_by_client_id: string | null = null
+    let partner_referral_code: string | null = null
+    let matchedPartner: { id: string; spif_amount: number } | null = null
+
+    if (inboundCode.trim()) {
+      const code = inboundCode.trim().toUpperCase()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const [clientRes, partnerRes] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('crm_clients').select('id').eq('referral_code', code).maybeSingle(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase as any).from('crm_partners').select('id, spif_amount').eq('referral_code', code).maybeSingle(),
+      ])
+      if (clientRes.data) {
+        referred_by_client_id = clientRes.data.id
+      } else if (partnerRes.data) {
+        partner_referral_code = code
+        matchedPartner = partnerRes.data
+      } else {
+        setError(`Referral code "${code}" not found`)
+        setSaving(false)
+        return
+      }
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error: insertError } = await (supabase as any)
       .from('crm_clients')
       .insert({
         first_name: form.first_name,
@@ -55,17 +82,51 @@ export default function NewClientPage() {
         birthday: form.birthday || null,
         notes: form.notes || null,
         referral_code: referralCode,
+        ...(referred_by_client_id ? { referred_by_client_id } : {}),
+        ...(partner_referral_code ? { partner_referral_code } : {}),
       })
       .select('id')
       .single()
 
-    if (error) {
-      setError(error.message)
+    if (insertError) {
+      setError(insertError.message)
       setSaving(false)
       return
     }
 
-    router.push(`/clients/${data.id}`)
+    const newClientId: string = data.id
+
+    // Log partner SPIF referral if applicable
+    if (matchedPartner) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('crm_partner_referrals').insert({
+        partner_id: matchedPartner.id,
+        client_id: newClientId,
+        spif_amount: matchedPartner.spif_amount,
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('crm_partners')
+        .update({ total_earned: matchedPartner.spif_amount } as never)
+        .eq('id', matchedPartner.id)
+        // Use rpc or raw increment — since we can't do += in supabase-js without RPC,
+        // fetch current total first then add
+      // Fetch current total_earned and increment
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pd } = await (supabase as any)
+        .from('crm_partners')
+        .select('total_earned')
+        .eq('id', matchedPartner.id)
+        .maybeSingle()
+      const newTotal = ((pd?.total_earned ?? 0) as number) + matchedPartner.spif_amount
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('crm_partners')
+        .update({ total_earned: newTotal } as never)
+        .eq('id', matchedPartner.id)
+    }
+
+    router.push(`/clients/${newClientId}`)
   }
 
   return (
@@ -131,6 +192,18 @@ export default function NewClientPage() {
             value={form.birthday}
             onChange={handleChange}
             className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Referred by Code <span className="text-gray-400 font-normal">(client or partner code, optional)</span>
+          </label>
+          <input
+            value={inboundCode}
+            onChange={e => setInboundCode(e.target.value)}
+            placeholder="e.g. CART1234 or CRUNCH20"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono uppercase"
           />
         </div>
 
