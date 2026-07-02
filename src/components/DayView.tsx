@@ -99,7 +99,7 @@ function ApptBlock({ appt, onClick, hasPkg }: { appt: LayoutAppt; onClick: (a: A
     >
       <div className="px-2 py-1.5 h-full flex flex-col overflow-hidden relative">
         {hasPkg && (
-          <Star size={11} className="absolute top-1 right-1 flex-shrink-0" style={{ color: '#FEB74B', fill: '#FEB74B' }} />
+          <Star size={14} className="absolute top-1 right-1 flex-shrink-0" style={{ color: '#F59E0B', fill: '#F59E0B' }} />
         )}
         <p className="text-xs font-bold leading-tight truncate pr-3">{name}</p>
         {height >= 96 && (

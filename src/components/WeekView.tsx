@@ -190,7 +190,7 @@ export default function WeekView({
                     >
                       <div className="px-1.5 py-1 h-full flex flex-col overflow-hidden relative">
                         {pkgClientIds?.has(appt.client_id) && (
-                          <Star size={9} className="absolute top-0.5 right-0.5 flex-shrink-0" style={{ color: '#FEB74B', fill: '#FEB74B' }} />
+                          <Star size={11} className="absolute top-0.5 right-0.5 flex-shrink-0" style={{ color: '#F59E0B', fill: '#F59E0B' }} />
                         )}
                         <p className="text-xs font-bold leading-tight truncate pr-2.5" style={{ fontSize: '10px' }}>
                           {formatLocalTime(appt.scheduled_at)}
