@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { X, Check, UserX, Ban, ExternalLink, ChevronDown } from 'lucide-react'
+import { X, Check, UserX, Ban, ExternalLink, ChevronDown, CalendarDays } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import { getServiceColors, getStatusBorder, SERVICE_COLORS, SERVICE_LABELS, type ServiceType } from '@/lib/service-colors'
 import { formatLocalTime } from '@/lib/time'
 import { SERVICE_DURATION_MINUTES } from '@/lib/capacity'
 import type { AppointmentFull } from './DayView'
+import RebookModal from './RebookModal'
 
 const SERVICE_OPTIONS: ServiceType[] = ['30min', '60min', '90min', 'brand_ambassador', 'family_friends']
 
@@ -113,6 +114,7 @@ export default function AppointmentModal({
   const [payMode, setPayMode] = useState<'standard' | 'buy' | 'use_pkg'>('standard')
   const [selectedPlan, setSelectedPlan] = useState<PackagePlan | null>(null)
   const [savingPkg, setSavingPkg] = useState(false)
+  const [showRebook, setShowRebook] = useState(false)
 
   // Close service picker on outside click
   useEffect(() => {
@@ -713,13 +715,34 @@ export default function AppointmentModal({
             )}
 
             {isTerminal && (
-              <div className="text-center py-2 text-sm text-gray-400">
-                This appointment is <span className="font-semibold">{STATUS_LABELS[status]}</span>.
+              <div className="space-y-2">
+                <div className="text-center py-2 text-sm text-gray-400">
+                  This appointment is <span className="font-semibold">{STATUS_LABELS[status]}</span>.
+                </div>
+                {status === 'completed' && appt.client_id && (
+                  <button
+                    onClick={() => setShowRebook(true)}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-semibold text-sm transition-all hover:opacity-90 active:scale-[0.98]"
+                    style={{ borderColor: '#47A1A0', color: '#47A1A0', backgroundColor: '#47A1A008' }}
+                  >
+                    <CalendarDays size={16} />
+                    Rebook
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {showRebook && appt.client_id && (
+        <RebookModal
+          clientId={appt.client_id}
+          clientName={clientName}
+          lastAppointment={{ scheduled_at: appt.scheduled_at, service_type: serviceType }}
+          onClose={() => setShowRebook(false)}
+        />
+      )}
     </>
   )
 }

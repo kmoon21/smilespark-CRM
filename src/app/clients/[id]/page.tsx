@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { format } from 'date-fns'
 import { createClient } from '@/lib/supabase-browser'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, CalendarDays } from 'lucide-react'
+import RebookModal from '@/components/RebookModal'
 
 interface Client {
   id: string
@@ -72,6 +73,7 @@ export default function ClientDetailPage() {
   const [packages, setPackages] = useState<Package[]>([])
   const [usingSession, setUsingSession] = useState<string | null>(null)
   const [referralCredit, setReferralCredit] = useState(0)
+  const [rebookAppt, setRebookAppt] = useState<Appointment | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -224,32 +226,57 @@ export default function ClientDetailPage() {
                 <th className="pb-2">Status</th>
                 <th className="pb-2">Amount</th>
                 <th className="pb-2">Notes</th>
+                <th className="pb-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {appointments.map((appt) => (
-                <tr key={appt.id}>
-                  <td className="py-2.5 text-gray-700">
-                    {format(new Date(appt.scheduled_at), 'MMM d, yyyy h:mm a')}
-                  </td>
-                  <td className="py-2.5 text-gray-700">{appt.service_type}</td>
-                  <td className="py-2.5">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[appt.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {appt.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="py-2.5 text-gray-700">
-                    {appt.amount_paid != null ? `$${appt.amount_paid.toFixed(2)}` : '—'}
-                  </td>
-                  <td className="py-2.5 text-gray-500 text-xs max-w-xs truncate">
-                    {appt.notes ?? '—'}
-                  </td>
-                </tr>
-              ))}
+              {appointments.map((appt, i) => {
+                const latestCompleted = i === appointments.findIndex(a => a.status === 'completed')
+                return (
+                  <tr key={appt.id}>
+                    <td className="py-2.5 text-gray-700">
+                      {format(new Date(appt.scheduled_at), 'MMM d, yyyy h:mm a')}
+                    </td>
+                    <td className="py-2.5 text-gray-700">{appt.service_type}</td>
+                    <td className="py-2.5">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[appt.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {appt.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-gray-700">
+                      {appt.amount_paid != null ? `$${appt.amount_paid.toFixed(2)}` : '—'}
+                    </td>
+                    <td className="py-2.5 text-gray-500 text-xs max-w-xs truncate">
+                      {appt.notes ?? '—'}
+                    </td>
+                    <td className="py-2.5">
+                      {latestCompleted && (
+                        <button
+                          onClick={() => setRebookAppt(appt)}
+                          className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors hover:opacity-80"
+                          style={{ borderColor: '#47A1A0', color: '#47A1A0' }}
+                        >
+                          <CalendarDays size={12} />
+                          Rebook
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         )}
       </section>
+
+      {rebookAppt && client && (
+        <RebookModal
+          clientId={client.id}
+          clientName={`${client.first_name} ${client.last_name}`}
+          lastAppointment={{ scheduled_at: rebookAppt.scheduled_at, service_type: rebookAppt.service_type }}
+          onClose={() => setRebookAppt(null)}
+        />
+      )}
 
       {/* Active Packages */}
       {packages.length > 0 && (
