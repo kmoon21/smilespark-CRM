@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase-browser'
@@ -26,6 +26,7 @@ export default function NewClientPage() {
   const [inboundCode, setInboundCode] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const submitGuard = useRef(false)
 
   useEffect(() => {
     setReferralCode(generateReferralCode(form.last_name || 'X'))
@@ -42,6 +43,8 @@ export default function NewClientPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submitGuard.current) return
+    submitGuard.current = true
     setSaving(true)
     setError(null)
 
@@ -67,6 +70,7 @@ export default function NewClientPage() {
       } else {
         setError(`Referral code "${code}" not found`)
         setSaving(false)
+        submitGuard.current = false
         return
       }
     }
@@ -91,6 +95,7 @@ export default function NewClientPage() {
     if (insertError) {
       setError(insertError.message)
       setSaving(false)
+      submitGuard.current = false
       return
     }
 
@@ -104,14 +109,7 @@ export default function NewClientPage() {
         client_id: newClientId,
         spif_amount: matchedPartner.spif_amount,
       })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
-        .from('crm_partners')
-        .update({ total_earned: matchedPartner.spif_amount } as never)
-        .eq('id', matchedPartner.id)
-        // Use rpc or raw increment — since we can't do += in supabase-js without RPC,
-        // fetch current total first then add
-      // Fetch current total_earned and increment
+      // Fetch current total_earned then increment by spif_amount (no RPC needed)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: pd } = await (supabase as any)
         .from('crm_partners')
