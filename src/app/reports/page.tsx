@@ -343,25 +343,33 @@ function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: s
   useEffect(() => {
     setLoading(true)
     const db = createClient() as any // eslint-disable-line @typescript-eslint/no-explicit-any
-    // Clients with referred_by_client_id set
-    let q = db.from('crm_clients').select('referred_by_client_id, referral_credit, created_at')
-    if (studioId) q = q.eq('studio_id', studioId)
+
+    // Step 1: referred clients within date range (no studio_id filter — crm_clients
+    // may not have that column; scoping happens via referrer lookup below)
+    let q = db
+      .from('crm_clients')
+      .select('referred_by_client_id, created_at')
+      .not('referred_by_client_id', 'is', null)
     if (from) q = q.gte('created_at', from)
     if (to) q = q.lte('created_at', to)
-    q.then(async ({ data }: { data: { referred_by_client_id: string | null; referral_credit: number }[] | null }) => {
-      const referred = (data ?? []).filter(r => r.referred_by_client_id)
+
+    q.then(async ({ data, error }: { data: { referred_by_client_id: string }[] | null; error: unknown }) => {
+      if (error) console.error('[ReferralsTab] referred query error:', error)
+      const referred = data ?? []
       setTotal(referred.length)
 
-      const referrerIds = [...new Set(referred.map(r => r.referred_by_client_id!))]
+      const referrerIds = [...new Set(referred.map(r => r.referred_by_client_id))]
       if (!referrerIds.length) { setRows([]); setLoading(false); return }
 
-      const { data: referrers } = await db
+      // Step 2: fetch referrer details (referral_credit lives on the referrer row)
+      const { data: referrers, error: refErr } = await db
         .from('crm_clients')
         .select('id, first_name, last_name, referral_credit')
         .in('id', referrerIds)
+      if (refErr) console.error('[ReferralsTab] referrer query error:', refErr)
 
       const countMap: Record<string, number> = {}
-      for (const r of referred) countMap[r.referred_by_client_id!] = (countMap[r.referred_by_client_id!] ?? 0) + 1
+      for (const r of referred) countMap[r.referred_by_client_id] = (countMap[r.referred_by_client_id] ?? 0) + 1
 
       const rows = (referrers ?? []).map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
         name: `${r.first_name} ${r.last_name}`,
