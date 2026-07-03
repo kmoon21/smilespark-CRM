@@ -335,7 +335,7 @@ function ClientsTab({ studioId, from, to }: { studioId: string | null; from: str
 
 // ── Referrals Tab ─────────────────────────────────────────────────────────────
 
-function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: string | null; to: string | null }) {
+function ReferralsTab({ from, to }: { studioId: string | null; from: string | null; to: string | null }) {
   const [rows, setRows] = useState<{ name: string; referrals: number; credits: number }[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -346,9 +346,7 @@ function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: s
       setLoading(true)
       const db = createClient() as any // eslint-disable-line @typescript-eslint/no-explicit-any
 
-      console.log('[ReferralsTab] querying with from=%s to=%s studioId=%s', from, to, studioId)
-
-      // Step 1: referred clients within date range — no studio_id filter on crm_clients
+      // No studio_id filter on crm_clients — that column doesn't exist on this table
       let q = db
         .from('crm_clients')
         .select('referred_by_client_id, created_at')
@@ -357,26 +355,19 @@ function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: s
       if (to) q = q.lte('created_at', to)
 
       const { data: referred, error } = await q
-      console.log('[ReferralsTab] step-1 result:', { data: referred, error, count: referred?.length })
-
       if (cancelled) return
-      if (error) { console.error('[ReferralsTab] step-1 error:', error); setLoading(false); return }
+      if (error) { setLoading(false); return }
 
       const referredRows = (referred ?? []) as { referred_by_client_id: string }[]
       setTotal(referredRows.length)
 
       const referrerIds = [...new Set(referredRows.map(r => r.referred_by_client_id))]
-      console.log('[ReferralsTab] referrer IDs:', referrerIds)
-
       if (!referrerIds.length) { setRows([]); setLoading(false); return }
 
-      // Step 2: fetch referrer details (referral_credit lives on the referrer row)
-      const { data: referrers, error: refErr } = await db
+      const { data: referrers } = await db
         .from('crm_clients')
         .select('id, first_name, last_name, referral_credit')
         .in('id', referrerIds)
-      console.log('[ReferralsTab] step-2 referrers:', { data: referrers, error: refErr })
-
       if (cancelled) return
 
       const countMap: Record<string, number> = {}
@@ -393,7 +384,10 @@ function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: s
     }
     load()
     return () => { cancelled = true }
-  }, [studioId, from, to])
+  // studioId intentionally omitted — not used in this query, and including it
+  // causes a null→value transition that cancels the effect mid-flight between
+  // step-1 (setTotal) and step-2 (setRows), leaving count=1 but table empty
+  }, [from, to])
 
   if (loading) return <p className="text-gray-400 text-sm py-8 text-center">Loading…</p>
 
