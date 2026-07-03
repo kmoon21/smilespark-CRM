@@ -341,24 +341,33 @@ function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: s
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setLoading(true)
-    const db = createClient() as any // eslint-disable-line @typescript-eslint/no-explicit-any
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      const db = createClient() as any // eslint-disable-line @typescript-eslint/no-explicit-any
 
-    // Step 1: referred clients within date range (no studio_id filter — crm_clients
-    // may not have that column; scoping happens via referrer lookup below)
-    let q = db
-      .from('crm_clients')
-      .select('referred_by_client_id, created_at')
-      .not('referred_by_client_id', 'is', null)
-    if (from) q = q.gte('created_at', from)
-    if (to) q = q.lte('created_at', to)
+      console.log('[ReferralsTab] querying with from=%s to=%s studioId=%s', from, to, studioId)
 
-    q.then(async ({ data, error }: { data: { referred_by_client_id: string }[] | null; error: unknown }) => {
-      if (error) console.error('[ReferralsTab] referred query error:', error)
-      const referred = data ?? []
-      setTotal(referred.length)
+      // Step 1: referred clients within date range — no studio_id filter on crm_clients
+      let q = db
+        .from('crm_clients')
+        .select('referred_by_client_id, created_at')
+        .not('referred_by_client_id', 'is', null)
+      if (from) q = q.gte('created_at', from)
+      if (to) q = q.lte('created_at', to)
 
-      const referrerIds = [...new Set(referred.map(r => r.referred_by_client_id))]
+      const { data: referred, error } = await q
+      console.log('[ReferralsTab] step-1 result:', { data: referred, error, count: referred?.length })
+
+      if (cancelled) return
+      if (error) { console.error('[ReferralsTab] step-1 error:', error); setLoading(false); return }
+
+      const referredRows = (referred ?? []) as { referred_by_client_id: string }[]
+      setTotal(referredRows.length)
+
+      const referrerIds = [...new Set(referredRows.map(r => r.referred_by_client_id))]
+      console.log('[ReferralsTab] referrer IDs:', referrerIds)
+
       if (!referrerIds.length) { setRows([]); setLoading(false); return }
 
       // Step 2: fetch referrer details (referral_credit lives on the referrer row)
@@ -366,10 +375,12 @@ function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: s
         .from('crm_clients')
         .select('id, first_name, last_name, referral_credit')
         .in('id', referrerIds)
-      if (refErr) console.error('[ReferralsTab] referrer query error:', refErr)
+      console.log('[ReferralsTab] step-2 referrers:', { data: referrers, error: refErr })
+
+      if (cancelled) return
 
       const countMap: Record<string, number> = {}
-      for (const r of referred) countMap[r.referred_by_client_id] = (countMap[r.referred_by_client_id] ?? 0) + 1
+      for (const r of referredRows) countMap[r.referred_by_client_id] = (countMap[r.referred_by_client_id] ?? 0) + 1
 
       const rows = (referrers ?? []).map((r: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
         name: `${r.first_name} ${r.last_name}`,
@@ -379,7 +390,9 @@ function ReferralsTab({ studioId, from, to }: { studioId: string | null; from: s
 
       setRows(rows)
       setLoading(false)
-    })
+    }
+    load()
+    return () => { cancelled = true }
   }, [studioId, from, to])
 
   if (loading) return <p className="text-gray-400 text-sm py-8 text-center">Loading…</p>
