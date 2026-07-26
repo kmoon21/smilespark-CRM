@@ -11,9 +11,11 @@ import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase-browser'
 import { SERVICE_DURATION_MINUTES, findAvailableChair } from '@/lib/capacity'
 
-const TEAL = '#47A1A0'
-const GOLD  = '#FEB74B'
-const NAVY  = '#1a2332'
+const TEAL      = '#47A1A0'
+const GOLD      = '#FEB74B'
+const NAVY      = '#1a2332'
+const STUDIO_ID = 'e0ca77b1-afb1-4c29-81c0-0051422078cf'
+const SUPPORT   = '(702) 483-8036'
 
 const TODAY    = new Date()
 const MAX_DATE = addDays(TODAY, 60)
@@ -163,104 +165,150 @@ export default function BookPage() {
     setSubmitting(true)
     setSubmitError(null)
 
-    const supabase = createClient()
-    const scheduledAt = new Date(
-      selDate.getFullYear(), selDate.getMonth(), selDate.getDate(),
-      selSlot.hour, selSlot.minute, 0, 0,
-    )
+    try {
+      const supabase = createClient()
+      const scheduledAt = new Date(
+        selDate.getFullYear(), selDate.getMonth(), selDate.getDate(),
+        selSlot.hour, selSlot.minute, 0, 0,
+      )
 
-    // Final capacity check (race-condition guard)
-    const availability = await findAvailableChair(supabase, scheduledAt, service.id)
-    if ('error' in availability) {
-      setSubmitError('This time slot was just taken. Please go back and choose another time.')
-      setSubmitting(false)
-      return
-    }
+      console.log('[book] Starting booking', {
+        service:      service.id,
+        scheduledAt:  scheduledAt.toISOString(),
+        studioId:     STUDIO_ID,
+      })
 
-    // Studio id
-    const { data: studio } = await supabase.from('crm_studios').select('id').single()
-    const studioId = (studio as { id: string } | null)?.id ?? null
+      // Final capacity check (race-condition guard)
+      const availability = await findAvailableChair(supabase, scheduledAt, service.id)
+      if ('error' in availability) {
+        console.error('[book] Capacity check failed:', availability.error)
+        setSubmitError('This time slot was just taken. Please go back and choose another time.')
+        return
+      }
+      console.log('[book] Chair available:', availability.chair)
 
-    // Find or create client by phone (exact match)
-    let clientId: string | null = null
-    const { data: existing } = await supabase
-      .from('crm_clients')
-      .select('id')
-      .eq('phone', phone.trim())
-      .limit(1)
+      // ── Find or create client ──────────────────────────────────────────────
 
-    if (existing && existing.length > 0) {
-      clientId = (existing[0] as { id: string }).id
-    } else {
-      // Resolve referral code → client
-      let referredById: string | null = null
-      if (refCode.trim()) {
-        const { data: referrer } = await supabase
-          .from('crm_clients')
-          .select('id')
-          .ilike('referral_code', refCode.trim())
-          .maybeSingle()
-        if (referrer) referredById = (referrer as { id: string }).id
+      let clientId: string | null = null
+
+      const { data: existing, error: lookupErr } = await supabase
+        .from('crm_clients')
+        .select('id')
+        .eq('phone', phone.trim())
+        .limit(1)
+
+      if (lookupErr) {
+        console.error('[book] Phone lookup error:', lookupErr)
       }
 
-      const { data: newClient, error: clientErr } = await supabase
-        .from('crm_clients')
+      const existingRows = existing as { id: string }[] | null
+      if (existingRows && existingRows.length > 0) {
+        clientId = existingRows[0].id
+        console.log('[book] Existing client found:', clientId)
+      } else {
+        console.log('[book] No existing client — creating new record')
+
+        // Resolve referral code → referring client
+        let referredById: string | null = null
+        if (refCode.trim()) {
+          const { data: referrer, error: refLookupErr } = await supabase
+            .from('crm_clients')
+            .select('id')
+            .ilike('referral_code', refCode.trim())
+            .maybeSingle()
+          if (refLookupErr) console.error('[book] Referral code lookup error:', refLookupErr)
+          if (referrer) referredById = (referrer as { id: string }).id
+        }
+
+        const { data: newClient, error: clientErr } = await supabase
+          .from('crm_clients')
+          .insert({
+            studio_id:             STUDIO_ID,
+            first_name:            firstName.trim(),
+            last_name:             lastName.trim(),
+            phone:                 phone.trim(),
+            email:                 email.trim() || null,
+            birthday:              birthday || null,
+            referred_by_client_id: referredById,
+          } as never)
+          .select('id')
+          .single()
+
+        if (clientErr) {
+          console.error('[book] Client insert error:', clientErr)
+          setSubmitError(`Something went wrong — please try again or call us at ${SUPPORT}`)
+          return
+        }
+        if (!newClient) {
+          console.error('[book] Client insert returned no data (possible RLS issue)')
+          setSubmitError(`Something went wrong — please try again or call us at ${SUPPORT}`)
+          return
+        }
+
+        clientId = (newClient as { id: string }).id
+        console.log('[book] New client created:', clientId)
+
+        // Log referral record
+        if (referredById && clientId) {
+          const { error: refLogErr } = await supabase
+            .from('crm_referrals')
+            .insert({
+              referrer_client_id: referredById,
+              referred_client_id: clientId,
+              code_used:          refCode.trim().toUpperCase(),
+            } as never)
+          if (refLogErr) console.error('[book] Referral log error:', refLogErr)
+        }
+      }
+
+      // ── Create appointment ─────────────────────────────────────────────────
+
+      const notes = refCode.trim()
+        ? `Booked online. Referral: ${refCode.trim()}`
+        : 'Booked online'
+
+      console.log('[book] Inserting appointment', {
+        studio_id:    STUDIO_ID,
+        client_id:    clientId,
+        service_type: service.id,
+        scheduled_at: scheduledAt.toISOString(),
+        chair_number: availability.chair,
+      })
+
+      const { data: appt, error: apptErr } = await supabase
+        .from('crm_appointments')
         .insert({
-          studio_id:              studioId,
-          first_name:             firstName.trim(),
-          last_name:              lastName.trim(),
-          phone:                  phone.trim(),
-          email:                  email.trim() || null,
-          birthday:               birthday || null,
-          referred_by_client_id:  referredById,
+          studio_id:    STUDIO_ID,
+          client_id:    clientId,
+          service_type: service.id,
+          scheduled_at: scheduledAt.toISOString(),
+          status:       'scheduled',
+          chair_number: availability.chair,
+          notes,
         } as never)
         .select('id')
         .single()
 
-      if (clientErr || !newClient) {
-        setSubmitError('Unable to save your info. Please try again.')
-        setSubmitting(false)
+      if (apptErr) {
+        console.error('[book] Appointment insert error:', apptErr)
+        setSubmitError(`Something went wrong — please try again or call us at ${SUPPORT}`)
         return
       }
-      clientId = (newClient as { id: string }).id
-
-      // Log referral record
-      if (referredById && clientId) {
-        await supabase.from('crm_referrals').insert({
-          referrer_client_id:  referredById,
-          referred_client_id:  clientId,
-          code_used:           refCode.trim().toUpperCase(),
-        } as never)
+      if (!appt) {
+        console.error('[book] Appointment insert returned no data (possible RLS issue)')
+        setSubmitError(`Something went wrong — please try again or call us at ${SUPPORT}`)
+        return
       }
-    }
 
-    // Create appointment
-    const notes = refCode.trim()
-      ? `Booked online. Referral: ${refCode.trim()}`
-      : 'Booked online'
+      console.log('[book] Appointment created:', (appt as { id: string }).id)
+      setStep('success')
 
-    const { data: appt, error: apptErr } = await supabase
-      .from('crm_appointments')
-      .insert({
-        studio_id:    studioId,
-        client_id:    clientId,
-        service_type: service.id,
-        scheduled_at: scheduledAt.toISOString(),
-        status:       'scheduled',
-        chair_number: availability.chair,
-        notes,
-      } as never)
-      .select('id')
-      .single()
-
-    if (apptErr || !appt) {
-      setSubmitError('Unable to complete your booking. Please try again.')
+    } catch (err) {
+      console.error('[book] Unexpected exception in handleConfirm:', err)
+      setSubmitError(`Something went wrong — please try again or call us at ${SUPPORT}`)
+    } finally {
       setSubmitting(false)
-      return
     }
-
-    setStep('success')
-    setSubmitting(false)
   }
 
   // ─── Success screen ───────────────────────────────────────────────────────────
