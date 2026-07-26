@@ -57,13 +57,11 @@ export default function PartnersPage() {
     setLoading(true)
     const supabase = createClient()
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: partnerData } = await (supabase as any)
       .from('crm_partners')
       .select('*')
       .order('created_at', { ascending: false })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: referralData } = await (supabase as any)
       .from('crm_partner_referrals')
       .select('partner_id')
@@ -86,7 +84,6 @@ export default function PartnersPage() {
 
   useEffect(() => {
     loadPartners()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function handleFormChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -114,7 +111,6 @@ export default function PartnersPage() {
     setAddError(null)
 
     const supabase = createClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)
       .from('crm_partners')
       .insert({

@@ -32,7 +32,6 @@ export default function NewClientPage() {
 
   useEffect(() => {
     setReferralCode(generateReferralCode(form.last_name || 'X'))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
@@ -57,11 +56,8 @@ export default function NewClientPage() {
 
     if (inboundCode.trim()) {
       const code = inboundCode.trim().toUpperCase()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const [clientRes, partnerRes] = await Promise.all([
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase as any).from('crm_clients').select('id').eq('referral_code', code).maybeSingle(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (supabase as any).from('crm_partners').select('id, spif_amount').eq('referral_code', code).maybeSingle(),
       ])
       if (clientRes.data) {
@@ -77,7 +73,6 @@ export default function NewClientPage() {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error: insertError } = await (supabase as any)
       .from('crm_clients')
       .insert({
@@ -105,21 +100,18 @@ export default function NewClientPage() {
 
     // Log partner SPIF referral if applicable
     if (matchedPartner) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any).from('crm_partner_referrals').insert({
         partner_id: matchedPartner.id,
         client_id: newClientId,
         spif_amount: matchedPartner.spif_amount,
       })
       // Fetch current total_earned then increment by spif_amount (no RPC needed)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: pd } = await (supabase as any)
         .from('crm_partners')
         .select('total_earned')
         .eq('id', matchedPartner.id)
         .maybeSingle()
       const newTotal = ((pd?.total_earned ?? 0) as number) + matchedPartner.spif_amount
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase as any)
         .from('crm_partners')
         .update({ total_earned: newTotal } as never)

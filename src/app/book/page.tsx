@@ -101,9 +101,8 @@ export default function BookPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   // Step 4 — confirm / submit
-  const [submitting,   setSubmitting]   = useState(false)
-  const [submitError,  setSubmitError]  = useState<string | null>(null)
-  const [confirmedDate, setConfirmedDate] = useState<string | null>(null)
+  const [submitting,  setSubmitting]  = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   // ─── Fetch day appointments whenever date or service changes ─────────────────
 
@@ -260,7 +259,6 @@ export default function BookPage() {
       return
     }
 
-    setConfirmedDate(scheduledAt.toISOString())
     setStep('success')
     setSubmitting(false)
   }
