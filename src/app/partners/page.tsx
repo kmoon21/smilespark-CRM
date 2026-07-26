@@ -57,12 +57,12 @@ export default function PartnersPage() {
     setLoading(true)
     const supabase = createClient()
 
-    const { data: partnerData } = await (supabase as any)
+    const { data: partnerData } = await supabase
       .from('crm_partners')
       .select('*')
       .order('created_at', { ascending: false })
 
-    const { data: referralData } = await (supabase as any)
+    const { data: referralData } = await supabase
       .from('crm_partner_referrals')
       .select('partner_id')
 
@@ -111,7 +111,7 @@ export default function PartnersPage() {
     setAddError(null)
 
     const supabase = createClient()
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('crm_partners')
       .insert({
         business_name: form.business_name.trim(),
@@ -120,7 +120,7 @@ export default function PartnersPage() {
         contact_email: form.contact_email.trim() || null,
         spif_amount: parseFloat(form.spif_amount) || 20,
         referral_code: partnerCode,
-      })
+      } as never)
 
     if (error) {
       setAddError(error.message ?? 'Failed to save partner.')
